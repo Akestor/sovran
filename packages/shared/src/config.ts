@@ -20,6 +20,13 @@ export const NatsConfigSchema = z.object({
   NATS_URL: z.string().default('nats://localhost:4222'),
 });
 
+export const MinioConfigSchema = z.object({
+  MINIO_ENDPOINT: z.string().default('http://localhost:9000'),
+  MINIO_ACCESS_KEY: z.string().min(1),
+  MINIO_SECRET_KEY: z.string().min(1),
+  MINIO_BUCKET: z.string().default('attachments'),
+});
+
 export const JwtKeySchema = z.object({
   kid: z.string().min(1),
   secret: z.string().min(32),
@@ -40,6 +47,7 @@ export const JwtConfigSchema = z.object({
 
 export const ApiConfigSchema = BaseConfigSchema.merge(DatabaseConfigSchema)
   .merge(RedisConfigSchema)
+  .merge(MinioConfigSchema)
   .merge(JwtConfigSchema)
   .extend({
     API_HOST: z.string().default('0.0.0.0'),
@@ -62,6 +70,7 @@ export const GatewayConfigSchema = BaseConfigSchema.merge(DatabaseConfigSchema)
 
 export const WorkerConfigSchema = BaseConfigSchema.merge(DatabaseConfigSchema)
   .merge(RedisConfigSchema)
+  .merge(MinioConfigSchema)
   .merge(NatsConfigSchema)
   .extend({
     OUTBOX_POLL_INTERVAL_MS: z.coerce.number().default(1000),

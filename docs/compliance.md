@@ -97,6 +97,12 @@ When a user requests a data export:
 | `members` | server_id, role, created_at | — | Cascade-deleted with user, role is functional data |
 | `server_invites` | — | all | Operational access-control artifacts |
 | `messages` | id, channel_id, content, created_at | author_id only if user is author | Message content is user data |
+| `attachments` | id, filename, size_bytes, created_at | object_key | Metadata only; object key excluded (internal path) |
+
+**Attachment Deletion Propagation**:
+- User deletion: `uploader_id` set to NULL (ON DELETE SET NULL)
+- Server deletion: worker processes outbox event, soft-deletes attachments, purges object storage
+- Object storage cleanup: worker deletes MinIO objects by `object_key` when attachment/server deleted
 
 New tables and fields must document their retention approach before merging.
 

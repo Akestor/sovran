@@ -39,6 +39,31 @@ describe('SendMessageRequestSchema', () => {
     const result = SendMessageRequestSchema.safeParse({ content: 'test', nonce: 'x'.repeat(65) });
     expect(result.success).toBe(false);
   });
+
+  it('accepts optional attachmentIds', () => {
+    const result = SendMessageRequestSchema.safeParse({
+      content: 'test',
+      attachmentIds: ['att1', 'att2'],
+    });
+    expect(result.success).toBe(true);
+    expect(result.data?.attachmentIds).toEqual(['att1', 'att2']);
+  });
+
+  it('rejects attachmentIds exceeding 5', () => {
+    const result = SendMessageRequestSchema.safeParse({
+      content: 'test',
+      attachmentIds: ['a', 'b', 'c', 'd', 'e', 'f'],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts attachmentIds with max 5', () => {
+    const result = SendMessageRequestSchema.safeParse({
+      content: 'test',
+      attachmentIds: ['a', 'b', 'c', 'd', 'e'],
+    });
+    expect(result.success).toBe(true);
+  });
 });
 
 describe('ListMessagesQuerySchema', () => {

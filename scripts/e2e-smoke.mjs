@@ -250,6 +250,96 @@ async function testPresenceEndpoint() {
   console.log('\n  Test 3 complete.\n');
 }
 
+// ─── Test 4: Attachment Upload Flow ───────────────────────────────
+async function testAttachmentUploadFlow() {
+  console.log('\n=== Test 4: Attachment Upload Flow ===\n');
+
+  const suffix = Date.now().toString(36);
+  const regCode = `e2e-att-${suffix}`;
+  await seedInviteCode(regCode);
+
+  const reg = await api('POST', '/auth/register', {
+    username: `attuser${suffix}`,
+    password: 'Password1234!',
+    inviteCode: regCode,
+  });
+  assert(reg.status === 201, `Register: ${reg.status}`, reg.data);
+  const token = reg.data.accessToken;
+
+  const srv = await api('POST', '/servers', { name: `Attachment Test ${suffix}` }, token);
+  assert(srv.status === 201, `Create server: ${srv.status}`);
+  const serverId = srv.data.id;
+
+  const listCh = await api('GET', `/servers/${serverId}/channels`, null, token);
+  assert(listCh.status === 200, `List channels: ${listCh.status}`);
+  const generalCh = listCh.data.find(c => c.name === 'general');
+  assert(generalCh, '#general channel exists');
+  const channelId = generalCh.id;
+
+  // Init upload
+  const init = await api('POST', `/servers/${serverId}/channels/${channelId}/attachments/init`, {
+    filename: 'test.png',
+    contentType: 'image/png',
+    sizeBytes: 64,
+  }, token);
+  assert(init.status === 200, `Init attachment: ${init.status}`, init.data);
+  assert(init.data.attachmentId, 'attachmentId returned');
+  assert(init.data.uploadUrl, 'uploadUrl returned');
+  const attachmentId = init.data.attachmentId;
+  const uploadUrl = init.data.uploadUrl;
+
+  // PUT file to MinIO (presigned URL)
+  const fileContent = Buffer.alloc(64, 'x');
+  const putRes = await fetch(uploadUrl, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'image/png', 'Content-Length': '64' },
+    body: fileContent,
+  });
+  assert(putRes.ok, `PUT to MinIO: ${putRes.status}`);
+
+  // Complete upload
+  const complete = await api('POST', `/attachments/${attachmentId}/complete`, {}, token);
+  assert(complete.status === 204, `Complete attachment: ${complete.status}`);
+
+  // Wait for scan stub (worker polls every 5s)
+  await new Promise(r => setTimeout(r, 6000));
+
+  // Send message with attachment
+  const send = await api('POST', `/servers/${serverId}/channels/${channelId}/messages`, {
+    content: 'Message with attachment',
+    attachmentIds: [attachmentId],
+  }, token);
+  assert(send.status === 201, `Send message with attachment: ${send.status}`, send.data);
+  assert(send.data.attachments, 'Message has attachments');
+  assert(send.data.attachments.length === 1, 'One attachment in message');
+  assert(send.data.attachments[0].filename === 'test.png', 'Attachment filename correct');
+
+  // List messages — attachment metadata present
+  const history = await api('GET', `/servers/${serverId}/channels/${channelId}/messages?limit=10`, null, token);
+  assert(history.status === 200, `List messages: ${history.status}`);
+  const msgWithAtt = history.data.find(m => m.attachments && m.attachments.length > 0);
+  assert(msgWithAtt, 'Message with attachment in history');
+
+  // Download URL (member)
+  const download = await api('GET', `/attachments/${attachmentId}/download`, null, token);
+  assert(download.status === 200, `Download URL: ${download.status}`);
+  assert(download.data.url, 'Download URL returned');
+
+  // Non-member cannot download
+  const regCode2 = `e2e-attnm-${suffix}`;
+  await seedInviteCode(regCode2);
+  const reg2 = await api('POST', '/auth/register', {
+    username: `attnm${suffix}`,
+    password: 'Password1234!',
+    inviteCode: regCode2,
+  });
+  const outsiderToken = reg2.data.accessToken;
+  const forbidden = await api('GET', `/attachments/${attachmentId}/download`, null, outsiderToken);
+  assert(forbidden.status === 403, `Non-member download blocked: ${forbidden.status}`);
+
+  console.log('\n  Test 4 complete.\n');
+}
+
 // ─── Run ─────────────────────────────────────────────────────────
 async function main() {
   console.log('Sovran E2E Smoke Tests');
@@ -258,6 +348,7 @@ async function main() {
   try { await testFullFlow(); } catch (e) { console.error(`\n  Test 1 ABORTED: ${e.message}`); }
   try { await testChannelPagination(); } catch (e) { console.error(`\n  Test 2 ABORTED: ${e.message}`); }
   try { await testPresenceEndpoint(); } catch (e) { console.error(`\n  Test 3 ABORTED: ${e.message}`); }
+  try { await testAttachmentUploadFlow(); } catch (e) { console.error(`\n  Test 4 ABORTED: ${e.message}`); }
 
   console.log(`\n======================`);
   console.log(`Results: ${passed} passed, ${failed} failed`);

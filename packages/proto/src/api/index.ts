@@ -43,8 +43,19 @@ export {
   MESSAGE_CONTENT_MAX_LENGTH,
   SendMessageRequestSchema,
   MessageResponseSchema,
+  AttachmentResponseSchema,
   ListMessagesQuerySchema,
   type SendMessageRequest,
   type MessageResponse,
   type ListMessagesQuery,
 } from './message';
+export {
+  MAX_ATTACHMENT_SIZE,
+  MAX_ATTACHMENTS_PER_MESSAGE,
+  InitAttachmentRequestSchema,
+  CompleteAttachmentRequestSchema,
+  AttachmentMetadataSchema,
+  type InitAttachmentRequest,
+  type CompleteAttachmentRequest,
+  type AttachmentMetadata,
+} from './attachment';

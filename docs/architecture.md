@@ -122,9 +122,28 @@ This ensures clients receive only events for servers they belong to. Topic subsc
 
 ### Messaging
 
-1. **Send Message**: `POST /servers/:sid/channels/:cid/messages` — membership + channel check, rate limit (5/5s per user+channel), content validation (max 4000 chars)
-2. **List Messages**: `GET /servers/:sid/channels/:cid/messages?before=<id>&limit=50` — cursor-based pagination using Snowflake IDs (DESC order), membership check
+1. **Send Message**: `POST /servers/:sid/channels/:cid/messages` — membership + channel check, rate limit (5/5s per user+channel), content validation (max 4000 chars), optional `attachmentIds` (max 5)
+2. **List Messages**: `GET /servers/:sid/channels/:cid/messages?before=<id>&limit=50` — cursor-based pagination using Snowflake IDs (DESC order), membership check, includes attachment metadata when present
 3. **Delete Message**: `DELETE /messages/:id` — author can delete own, ADMIN/OWNER can delete any, soft-delete + outbox event
+
+### Attachments
+
+1. **Init Upload**: `POST /servers/:sid/channels/:cid/attachments/init` — membership + channel check, content-type allowlist (image/png, image/jpeg, image/gif, image/webp, application/pdf), size limit 10MB, returns `{ attachmentId, uploadUrl }` (presigned PUT)
+2. **Complete Upload**: `POST /attachments/:id/complete` — verifies uploader ownership, sets status to `uploaded`, triggers outbox `ATTACHMENT_UPLOADED` for worker scan
+3. **Download**: `GET /attachments/:id/download` — membership check, returns presigned GET URL (short-lived, 1h)
+
+**Attachment Flow**:
+```
+Client → API (init) → Postgres (status=pending) + presigned PUT URL
+Client → MinIO (PUT file directly)
+Client → API (complete) → Postgres (status=uploaded) + outbox
+Worker → polls attachments WHERE status='uploaded' → sets status to 'scanned' (stub; ClamAV later)
+Client → POST /messages { attachmentIds } → only scanned attachments allowed
+```
+
+**Object Key Schema**: `srv/<serverId>/<uuid>/<sanitized-filename>` — no PII in path, server-scoped for bulk deletion.
+
+**Presigned URL Pattern**: Upload 15min TTL, download 1h TTL; client fetches download URL on-demand.
 
 Data flow for realtime delivery:
 ```

@@ -2,6 +2,24 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { MessageService, type MessageServiceDeps } from '../message-service';
 import { type Message } from '../message';
 import { type Channel, type Member } from '../server';
+import type { Attachment } from '../attachment';
+
+function makeAttachment(overrides: Partial<Attachment> = {}): Attachment {
+  return {
+    id: 'att-1',
+    serverId: 'srv-1',
+    channelId: 'ch-1',
+    uploaderId: 'user-1',
+    objectKey: 'srv/srv-1/uuid/file.png',
+    filename: 'file.png',
+    contentType: 'image/png',
+    sizeBytes: 100,
+    status: 'scanned',
+    createdAt: new Date(),
+    deletedAt: null,
+    ...overrides,
+  };
+}
 
 function makeMessage(overrides: Partial<Message> = {}): Message {
   return {
@@ -109,6 +127,78 @@ describe('MessageService', () => {
       (deps.channelRepo.findById as ReturnType<typeof vi.fn>).mockResolvedValueOnce(makeChannel({ serverId: 'srv-other' }));
       await expect(service.sendMessage('user-1', 'srv-1', 'ch-1', { content: 'Hello' }))
         .rejects.toMatchObject({ kind: 'NOT_FOUND' });
+    });
+
+    it('links attachments when provided', async () => {
+      const attachmentRepo = {
+        create: vi.fn(),
+        findById: vi.fn(),
+        updateStatus: vi.fn(),
+        softDelete: vi.fn(),
+        findByIds: vi.fn(async () => [
+          makeAttachment({ id: 'att-1', filename: 'a.png', sizeBytes: 100 }),
+          makeAttachment({ id: 'att-2', filename: 'b.png', sizeBytes: 200 }),
+        ]),
+        listByStatus: vi.fn(),
+      };
+      const messageAttachmentRepo = { link: vi.fn(async () => {}), listByMessageId: vi.fn(async () => []) };
+      const depsWithAtt = createMockDeps({ attachmentRepo, messageAttachmentRepo });
+      const svc = new MessageService(depsWithAtt);
+
+      await svc.sendMessage('user-1', 'srv-1', 'ch-1', {
+        content: 'With attachments',
+        attachmentIds: ['att-1', 'att-2'],
+      });
+
+      expect(messageAttachmentRepo.link).toHaveBeenCalledWith({}, '5000', ['att-1', 'att-2']);
+      const outboxCall = (depsWithAtt.outbox.append as ReturnType<typeof vi.fn>).mock.calls[0][1];
+      expect(outboxCall.payload.attachments).toHaveLength(2);
+      expect(outboxCall.payload.attachments[0].id).toBe('att-1');
+    });
+
+    it('rejects when attachmentIds provided but repos not configured', async () => {
+      await expect(
+        service.sendMessage('user-1', 'srv-1', 'ch-1', {
+          content: 'Test',
+          attachmentIds: ['att-1'],
+        }),
+      ).rejects.toMatchObject({ kind: 'VALIDATION', message: 'Attachments not supported' });
+    });
+
+    it('rejects when attachment not scanned', async () => {
+      const attachmentRepo = {
+        create: vi.fn(),
+        findById: vi.fn(),
+        updateStatus: vi.fn(),
+        softDelete: vi.fn(),
+        findByIds: vi.fn(async () => [makeAttachment({ id: 'att-1', status: 'uploaded' })]),
+        listByStatus: vi.fn(),
+      };
+      const messageAttachmentRepo = { link: vi.fn(async () => {}), listByMessageId: vi.fn(async () => []) };
+      const depsWithAtt = createMockDeps({ attachmentRepo, messageAttachmentRepo });
+      const svc = new MessageService(depsWithAtt);
+
+      await expect(
+        svc.sendMessage('user-1', 'srv-1', 'ch-1', { content: 'x', attachmentIds: ['att-1'] }),
+      ).rejects.toMatchObject({ kind: 'VALIDATION', message: 'Attachment not yet available' });
+    });
+
+    it('rejects when attachment from different server', async () => {
+      const attachmentRepo = {
+        create: vi.fn(),
+        findById: vi.fn(),
+        updateStatus: vi.fn(),
+        softDelete: vi.fn(),
+        findByIds: vi.fn(async () => [makeAttachment({ id: 'att-1', serverId: 'srv-other' })]),
+        listByStatus: vi.fn(),
+      };
+      const messageAttachmentRepo = { link: vi.fn(async () => {}), listByMessageId: vi.fn(async () => []) };
+      const depsWithAtt = createMockDeps({ attachmentRepo, messageAttachmentRepo });
+      const svc = new MessageService(depsWithAtt);
+
+      await expect(
+        svc.sendMessage('user-1', 'srv-1', 'ch-1', { content: 'x', attachmentIds: ['att-1'] }),
+      ).rejects.toMatchObject({ kind: 'VALIDATION', message: 'All attachments must belong to this server' });
     });
   });
 

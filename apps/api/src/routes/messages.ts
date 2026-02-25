@@ -38,7 +38,11 @@ export function registerMessageRoutes(app: FastifyInstance, deps: MessageRouteDe
     }
 
     try {
-      const message = await messageService.sendMessage(request.userId!, serverId, channelId, parsed.data);
+      const message = await messageService.sendMessage(request.userId!, serverId, channelId, {
+        content: parsed.data.content,
+        nonce: parsed.data.nonce,
+        attachmentIds: parsed.data.attachmentIds,
+      });
       return reply.status(201).send({
         id: message.id,
         channelId: message.channelId,
@@ -48,6 +52,7 @@ export function registerMessageRoutes(app: FastifyInstance, deps: MessageRouteDe
         createdAt: message.createdAt.toISOString(),
         editedAt: null,
         deletedAt: null,
+        ...(message.attachments ? { attachments: message.attachments } : {}),
       });
     } catch (err) {
       return mapMessageError(err);
@@ -73,6 +78,7 @@ export function registerMessageRoutes(app: FastifyInstance, deps: MessageRouteDe
           createdAt: m.createdAt.toISOString(),
           editedAt: m.editedAt?.toISOString() ?? null,
           deletedAt: m.deletedAt?.toISOString() ?? null,
+          ...(m.attachments ? { attachments: m.attachments } : {}),
         })),
       );
     } catch (err) {

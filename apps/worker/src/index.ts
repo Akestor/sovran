@@ -5,6 +5,7 @@ import { startOutboxPublisher } from './outbox-publisher';
 import { runDeletionJob } from './jobs/deletion';
 import { runRetentionJob } from './jobs/retention';
 import { runDsarExportJob } from './jobs/dsar';
+import { runAttachmentScanJob } from './jobs/attachment-scan';
 
 const logger = createLogger({ name: 'worker' });
 
@@ -33,6 +34,9 @@ async function main() {
     setInterval(() => {
       runDsarExportJob().catch(logJobError('dsar'));
     }, 60_000),
+    setInterval(() => {
+      runAttachmentScanJob().catch(logJobError('attachment-scan'));
+    }, 5_000),
   ];
 
   logger.info({}, 'Worker started');

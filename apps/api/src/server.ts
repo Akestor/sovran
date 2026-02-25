@@ -1,11 +1,12 @@
+import { randomUUID } from 'node:crypto';
 import Fastify from 'fastify';
-import { createLogger, SnowflakeGenerator, JoseTokenService, Argon2PasswordHasher, InMemoryMessageRateLimiter, RedisPresenceStore, getRedis } from '@sovran/shared';
-import { AuthService, ServerService, ChannelService, MessageService } from '@sovran/domain';
+import { createLogger, SnowflakeGenerator, JoseTokenService, Argon2PasswordHasher, InMemoryMessageRateLimiter, RedisPresenceStore, getRedis, MinioObjectStorage } from '@sovran/shared';
+import { AuthService, ServerService, ChannelService, MessageService, AttachmentService } from '@sovran/domain';
 import {
   withTransaction,
   PgUserRepository, PgRefreshTokenRepository, PgInviteCodeRepository,
   PgServerRepository, PgChannelRepository, PgMemberRepository, PgServerInviteRepository,
-  PgMessageRepository,
+  PgMessageRepository, PgAttachmentRepository, PgMessageAttachmentRepository,
   appendOutboxEvent,
 } from '@sovran/db';
 import { registerErrorHandler } from './plugins/error-handler';
@@ -15,6 +16,7 @@ import { registerAuthRoutes } from './routes/auth';
 import { registerServerRoutes } from './routes/servers';
 import { registerChannelRoutes } from './routes/channels';
 import { registerMessageRoutes } from './routes/messages';
+import { registerAttachmentRoutes } from './routes/attachments';
 import { registerPresenceRoutes } from './routes/presence';
 
 const logger = createLogger({ name: 'api' });
@@ -28,6 +30,10 @@ export interface ServerConfig {
   nodeId: number;
   maxChannelsPerServer: number;
   redisUrl: string;
+  minioEndpoint: string;
+  minioAccessKey: string;
+  minioSecretKey: string;
+  minioBucket: string;
 }
 
 export async function buildServer(config: ServerConfig) {
@@ -86,10 +92,33 @@ export async function buildServer(config: ServerConfig) {
     maxChannelsPerServer: config.maxChannelsPerServer,
   });
 
+  const attachmentRepo = new PgAttachmentRepository();
+  const messageAttachmentRepo = new PgMessageAttachmentRepository();
+  const objectStorage = new MinioObjectStorage({
+    endpoint: config.minioEndpoint,
+    accessKey: config.minioAccessKey,
+    secretKey: config.minioSecretKey,
+    bucket: config.minioBucket,
+  });
+
+  const attachmentService = new AttachmentService({
+    attachmentRepo,
+    messageAttachmentRepo,
+    memberRepo: new PgMemberRepository(),
+    channelRepo: new PgChannelRepository(),
+    objectStorage,
+    outbox,
+    generateId: () => idGen.generate(),
+    generateUuid: () => randomUUID(),
+    withTransaction,
+  });
+
   const messageService = new MessageService({
     messageRepo: new PgMessageRepository(),
     memberRepo: new PgMemberRepository(),
     channelRepo: new PgChannelRepository(),
+    attachmentRepo,
+    messageAttachmentRepo,
     outbox,
     rateLimiter: new InMemoryMessageRateLimiter(),
     generateId: () => idGen.generate(),
@@ -107,6 +136,7 @@ export async function buildServer(config: ServerConfig) {
   registerServerRoutes(app, { serverService, authenticate });
   registerChannelRoutes(app, { channelService, authenticate });
   registerMessageRoutes(app, { messageService, authenticate });
+  registerAttachmentRoutes(app, { attachmentService, authenticate });
 
   const presenceStore = new RedisPresenceStore(getRedis());
   registerPresenceRoutes(app, {

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { MAX_ATTACHMENTS_PER_MESSAGE } from './attachment';
 
 export const MESSAGE_CONTENT_MAX_LENGTH = 4000;
 
@@ -9,6 +10,14 @@ export const SendMessageRequestSchema = z.object({
     .min(1, 'Message content is required')
     .max(MESSAGE_CONTENT_MAX_LENGTH, `Message must be at most ${MESSAGE_CONTENT_MAX_LENGTH} characters`),
   nonce: z.string().max(64).optional(),
+  attachmentIds: z.array(z.string()).max(MAX_ATTACHMENTS_PER_MESSAGE).optional(),
+});
+
+export const AttachmentResponseSchema = z.object({
+  id: z.string(),
+  filename: z.string(),
+  contentType: z.string(),
+  sizeBytes: z.number(),
 });
 
 export const MessageResponseSchema = z.object({
@@ -20,6 +29,7 @@ export const MessageResponseSchema = z.object({
   createdAt: z.string().datetime(),
   editedAt: z.string().datetime().nullable(),
   deletedAt: z.string().datetime().nullable(),
+  attachments: z.array(AttachmentResponseSchema).optional(),
 });
 
 export const ListMessagesQuerySchema = z.object({

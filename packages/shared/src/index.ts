@@ -36,3 +36,4 @@ export {
   RedisTypingStore, InMemoryTypingStore,
   type TypingStore,
 } from './typing-store';
+export { MinioObjectStorage, type MinioObjectStorageConfig } from './object-storage';

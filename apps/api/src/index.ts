@@ -19,6 +19,10 @@ async function main() {
     nodeId: config.NODE_ID,
     maxChannelsPerServer: config.MAX_CHANNELS_PER_SERVER,
     redisUrl: config.REDIS_URL,
+    minioEndpoint: config.MINIO_ENDPOINT,
+    minioAccessKey: config.MINIO_ACCESS_KEY,
+    minioSecretKey: config.MINIO_SECRET_KEY,
+    minioBucket: config.MINIO_BUCKET,
   });
 
   await app.listen({ host: config.API_HOST, port: config.API_PORT });

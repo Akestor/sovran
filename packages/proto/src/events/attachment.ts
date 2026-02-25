@@ -1,0 +1,1 @@
+export const ATTACHMENT_UPLOADED = 'ATTACHMENT_UPLOADED' as const;

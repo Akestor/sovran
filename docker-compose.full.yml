@@ -80,12 +80,18 @@ services:
       JWT_ACTIVE_KID: key-1
       JWT_KEYS: '[{"kid":"key-1","secret":"docker-compose-dev-secret-min-32-chars!!"}]'
       CORS_ORIGIN: http://localhost:5173
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET: sovran-uploads
     ports:
       - '3000:3000'
     depends_on:
       db-migrate:
         condition: service_completed_successfully
       redis:
+        condition: service_healthy
+      minio:
         condition: service_healthy
 
   gateway:
@@ -128,12 +134,18 @@ services:
       NATS_URL: nats://nats:4222
       OUTBOX_POLL_INTERVAL_MS: 1000
       OUTBOX_BATCH_SIZE: 100
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET: sovran-uploads
     depends_on:
       db-migrate:
         condition: service_completed_successfully
       redis:
         condition: service_healthy
       nats:
+        condition: service_healthy
+      minio:
         condition: service_healthy
 
 volumes:

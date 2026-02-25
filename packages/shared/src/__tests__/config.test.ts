@@ -44,6 +44,8 @@ describe('loadConfig', () => {
     const config = loadConfig(ApiConfigSchema, {
       DATABASE_URL: 'postgresql://test:test@localhost:5432/test',
       REDIS_URL: 'redis://localhost:6379',
+      MINIO_ACCESS_KEY: 'minioadmin',
+      MINIO_SECRET_KEY: 'minioadmin',
       JWT_ACTIVE_KID: 'key-1',
       JWT_KEYS: JSON.stringify([{ kid: 'key-1', secret: 'a'.repeat(32) }]),
     });
@@ -54,5 +56,7 @@ describe('loadConfig', () => {
     expect(config.JWT_ACTIVE_KID).toBe('key-1');
     expect(config.JWT_KEYS).toHaveLength(1);
     expect(config.CORS_ORIGIN).toBe('http://localhost:5173');
+    expect(config.MINIO_ENDPOINT).toBe('http://localhost:9000');
+    expect(config.MINIO_BUCKET).toBe('attachments');
   });
 });

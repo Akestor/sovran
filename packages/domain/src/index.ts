@@ -39,3 +39,10 @@ export { ChannelService, ChannelError, type ChannelServiceDeps } from './channel
 export type { Message } from './message';
 export type { MessageRepository } from './message-ports';
 export { MessageService, MessageError, type MessageServiceDeps, type MessageRateLimiterPort } from './message-service';
+export type { Attachment, AttachmentStatus } from './attachment';
+export type {
+  AttachmentRepository,
+  MessageAttachmentRepository,
+  ObjectStoragePort,
+} from './attachment-ports';
+export { AttachmentService, AttachmentError, type AttachmentServiceDeps } from './attachment-service';
