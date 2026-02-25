@@ -136,6 +136,42 @@ Client → API (validates, writes message + outbox) → Worker (polls outbox)
 
 Rate limiting: per user+channel sliding window (in-memory, replaceable with Redis for multi-instance)
 
+### Presence & Typing
+
+Presence and typing are **fully ephemeral** — Redis is the source of truth, no Postgres, no Outbox. Events go directly via NATS (no Worker polling needed).
+
+```
+Client → Gateway (WS) → Redis (SET with TTL) + NATS (direct publish)
+                                                   ↓
+                                        Other Gateways (SUB srv.X.presence / srv.X.chan.Y.typing)
+                                                   ↓
+                                        WebSocket clients
+```
+
+**Presence lifecycle:**
+- `open`: `presenceStore.setOnline(userId, serverIds)` + NATS publish `PRESENCE_UPDATE(online)` to each server
+- `close`: `presenceStore.setOffline(userId)` + NATS publish `PRESENCE_UPDATE(offline)` to each server
+- Heartbeat (every 30s): renews Redis TTL (failsafe if gateway crashes without `close`)
+- Client event `PRESENCE_STATUS_CHANGE`: user can set `idle`/`dnd`
+
+**Typing lifecycle:**
+- Client event `TYPING_START`: `typingStore.setTyping(channelId, userId)` + NATS publish to `srv.<sid>.chan.<cid>.typing`
+- 8s TTL in Redis, fire-and-forget (no ACK, no persistence)
+- Membership check via `ConnectionState.serverIds`
+
+**Redis key schema:**
+- `presence:<userId>` → `{ status, serverIds[] }` with 60s TTL
+- `typing:<channelId>:<userId>` → `1` with 8s TTL
+
+**API endpoint:**
+- `GET /servers/:serverId/presence` — returns online members with their status (reads from Redis, membership check required)
+
+| Subject | Purpose |
+|---|---|
+| `srv.<serverId>.presence` | Presence updates |
+| `srv.<serverId>.chan.<channelId>.typing` | Typing indicators |
+| `srv.<serverId>.chan.*.typing` | Wildcard subscription for typing |
+
 ### Snowflake ID Generation
 
 64-bit IDs with:
@@ -176,7 +212,9 @@ Guarantees reliable event delivery:
 | `srv.<serverId>.events` | Server-level events (join, leave, delete, owner transfer) |
 | `srv.<serverId>.chan.<channelId>.events` | Channel events (messages, create, delete, rename) |
 | `srv.<serverId>.chan.*.events` | Wildcard for all channels in a server |
-| `srv.<serverId>.presence` | Server presence updates |
+| `srv.<serverId>.presence` | Server presence updates (direct NATS, no outbox) |
+| `srv.<serverId>.chan.<channelId>.typing` | Channel typing indicators (direct NATS, no outbox) |
+| `srv.<serverId>.chan.*.typing` | Wildcard for all channel typing in a server |
 | `user.<userId>.events` | User-scoped events |
 | `user.<userId>.dm.events` | Direct message events |
 | `srv.>` | Global wildcard for NATS→uWS bridge |

@@ -1,5 +1,5 @@
 import Fastify from 'fastify';
-import { createLogger, SnowflakeGenerator, JoseTokenService, Argon2PasswordHasher, InMemoryMessageRateLimiter } from '@sovran/shared';
+import { createLogger, SnowflakeGenerator, JoseTokenService, Argon2PasswordHasher, InMemoryMessageRateLimiter, RedisPresenceStore, getRedis } from '@sovran/shared';
 import { AuthService, ServerService, ChannelService, MessageService } from '@sovran/domain';
 import {
   withTransaction,
@@ -15,6 +15,7 @@ import { registerAuthRoutes } from './routes/auth';
 import { registerServerRoutes } from './routes/servers';
 import { registerChannelRoutes } from './routes/channels';
 import { registerMessageRoutes } from './routes/messages';
+import { registerPresenceRoutes } from './routes/presence';
 
 const logger = createLogger({ name: 'api' });
 
@@ -26,6 +27,7 @@ export interface ServerConfig {
   corsOrigin: string;
   nodeId: number;
   maxChannelsPerServer: number;
+  redisUrl: string;
 }
 
 export async function buildServer(config: ServerConfig) {
@@ -105,6 +107,14 @@ export async function buildServer(config: ServerConfig) {
   registerServerRoutes(app, { serverService, authenticate });
   registerChannelRoutes(app, { channelService, authenticate });
   registerMessageRoutes(app, { messageService, authenticate });
+
+  const presenceStore = new RedisPresenceStore(getRedis());
+  registerPresenceRoutes(app, {
+    presenceStore,
+    memberRepo: new PgMemberRepository(),
+    authenticate,
+    withTransaction,
+  });
 
   app.addHook('onRequest', (_request, _reply, done) => {
     logger.info(

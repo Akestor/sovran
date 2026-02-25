@@ -28,5 +28,19 @@ export const GatewayReadyPayload = z.object({
 
 export type GatewayHello = z.infer<typeof GatewayHelloPayload>;
 export type GatewayIdentify = z.infer<typeof GatewayIdentifyPayload>;
+export const CLIENT_TYPING_START = 'TYPING_START' as const;
+export const CLIENT_PRESENCE_STATUS = 'PRESENCE_STATUS_CHANGE' as const;
+
+export const ClientTypingStartPayload = z.object({
+  serverId: z.string(),
+  channelId: z.string(),
+});
+
+export const ClientPresenceStatusPayload = z.object({
+  status: z.enum(['online', 'idle', 'dnd']),
+});
+
 export type GatewayReady = z.infer<typeof GatewayReadyPayload>;
 export type GatewayReadyServer = z.infer<typeof GatewayReadyServerSchema>;
+export type ClientTypingStart = z.infer<typeof ClientTypingStartPayload>;
+export type ClientPresenceStatus = z.infer<typeof ClientPresenceStatusPayload>;

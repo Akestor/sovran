@@ -1,4 +1,7 @@
-import { loadConfig, GatewayConfigSchema, createLogger, SnowflakeGenerator, JoseTokenService } from '@sovran/shared';
+import {
+  loadConfig, GatewayConfigSchema, createLogger, SnowflakeGenerator, JoseTokenService,
+  initRedis, closeRedis, RedisPresenceStore, RedisTypingStore,
+} from '@sovran/shared';
 import { NatsSubjects } from '@sovran/proto';
 import { initPool, closePool, withTransaction, PgServerRepository } from '@sovran/db';
 import { createGateway } from './server';
@@ -18,9 +21,21 @@ async function main() {
 
   initPool({ connectionString: config.DATABASE_URL });
 
+  const redis = initRedis(config.REDIS_URL);
+  const presenceStore = new RedisPresenceStore(redis);
+  const typingStore = new RedisTypingStore(redis);
+
   const serverRepo = new PgServerRepository();
 
   const natsConn = await initNats(config.NATS_URL);
+
+  const { StringCodec } = await import('nats');
+  const sc = StringCodec();
+  const natsPublisher = {
+    publish(subject: string, data: string) {
+      natsConn.publish(subject, sc.encode(data));
+    },
+  };
 
   const { app, start } = createGateway({
     port: config.GATEWAY_PORT,
@@ -29,6 +44,9 @@ async function main() {
     rateLimitPerSecond: config.RATE_LIMIT_PER_SECOND,
     idGen,
     tokenService,
+    presenceStore,
+    typingStore,
+    natsPublisher,
     fetchUserServers: (userId) => withTransaction((tx) => serverRepo.listByUserId(tx, userId)),
   });
 
@@ -39,6 +57,7 @@ async function main() {
   const shutdown = async () => {
     logger.info({}, 'Shutting down gateway');
     await closeNats();
+    await closeRedis();
     await closePool();
     process.exit(0);
   };

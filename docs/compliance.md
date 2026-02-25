@@ -13,7 +13,7 @@ All features must be developed with privacy-by-design and data minimization as d
 | **Auth tokens** | Refresh token hashes, family IDs | PostgreSQL `refresh_tokens` | No PII (hashed) |
 | **Invite codes** | Code hashes, usage counts | PostgreSQL `invite_codes` | No PII (hashed) |
 | **Content data** | Messages, attachments | PostgreSQL + object storage | Separate from identity |
-| **Ephemeral data** | Presence, typing indicators | Redis with TTL | Not persisted |
+| **Ephemeral data** | Presence (status), typing indicators | Redis with TTL (60s / 8s) | Not persisted, no `lastSeenAt` |
 | **Server data** | Server name, channels, member roles | PostgreSQL `servers`, `channels`, `members` | Minimal PII (userId only) |
 | **Messages** | Message content, author reference | PostgreSQL `messages` | Content data (separate from identity) |
 | **Server invites** | Code hashes, usage counts | PostgreSQL `server_invites` | No PII (hashed) |
@@ -77,6 +77,8 @@ When a user requests a data export:
 |---|---|---|
 | Published outbox events | 7 days | Worker retention job (`runRetentionJob`) |
 | Session data | TTL-based | Redis key expiry (automatic) |
+| Presence keys | 60 seconds | Redis TTL (auto-expiry, no manual sweep) |
+| Typing keys | 8 seconds | Redis TTL (auto-expiry, no manual sweep) |
 | Refresh tokens (expired/revoked) | 30 days after expiry/revocation | Worker retention job (`deleteExpired`) |
 | Invite codes | Kept for audit; expired cleaned after 90d | Worker retention job (future) |
 | Deletion request records | 90 days after completion | Worker retention job (future) |

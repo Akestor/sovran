@@ -201,11 +201,53 @@ async function testChannelPagination() {
     password: 'Password1234!',
     inviteCode: regCode2,
   });
+  assert(reg2.status === 201, `Register outsider: ${reg2.status}`, reg2.data);
   const outsiderToken = reg2.data.accessToken;
+  assert(outsiderToken, 'Outsider token exists');
   const forbidden = await api('GET', `/servers/${serverId}/channels/${channelId}/messages?limit=10`, null, outsiderToken);
   assert(forbidden.status === 403, `Non-member blocked: ${forbidden.status}`);
 
   console.log('\n  Test 2 complete.\n');
+}
+
+// ─── Test 3: Presence Endpoint ───────────────────────────────────
+async function testPresenceEndpoint() {
+  console.log('\n=== Test 3: Presence API Endpoint ===\n');
+
+  const suffix = Date.now().toString(36);
+  const regCode = `e2e-pres-${suffix}`;
+  await seedInviteCode(regCode);
+
+  const reg = await api('POST', '/auth/register', {
+    username: `presuser${suffix}`,
+    password: 'Password1234!',
+    inviteCode: regCode,
+  });
+  assert(reg.status === 201, `Register: ${reg.status}`, reg.data);
+  const token = reg.data.accessToken;
+
+  const srv = await api('POST', '/servers', { name: `Presence Test ${suffix}` }, token);
+  assert(srv.status === 201, `Create server: ${srv.status}`);
+  const serverId = srv.data.id;
+
+  // GET presence (no one connected via WS, so list should be empty or just us if GW connected)
+  const pres = await api('GET', `/servers/${serverId}/presence`, null, token);
+  assert(pres.status === 200, `Presence endpoint: ${pres.status}`);
+  assert(Array.isArray(pres.data), 'Presence returns array');
+
+  // Non-member cannot access presence
+  const regCode2 = `e2e-prnm-${suffix}`;
+  await seedInviteCode(regCode2);
+  const reg2 = await api('POST', '/auth/register', {
+    username: `presnm${suffix}`,
+    password: 'Password1234!',
+    inviteCode: regCode2,
+  });
+  const outsiderToken = reg2.data.accessToken;
+  const forbidden = await api('GET', `/servers/${serverId}/presence`, null, outsiderToken);
+  assert(forbidden.status === 403, `Non-member presence blocked: ${forbidden.status}`);
+
+  console.log('\n  Test 3 complete.\n');
 }
 
 // ─── Run ─────────────────────────────────────────────────────────
@@ -215,6 +257,7 @@ async function main() {
 
   try { await testFullFlow(); } catch (e) { console.error(`\n  Test 1 ABORTED: ${e.message}`); }
   try { await testChannelPagination(); } catch (e) { console.error(`\n  Test 2 ABORTED: ${e.message}`); }
+  try { await testPresenceEndpoint(); } catch (e) { console.error(`\n  Test 3 ABORTED: ${e.message}`); }
 
   console.log(`\n======================`);
   console.log(`Results: ${passed} passed, ${failed} failed`);

@@ -27,3 +27,12 @@ export { Argon2PasswordHasher } from './auth/password-hasher';
 export { InMemoryMessageRateLimiter, type MessageRateLimiter } from './rate-limiter';
 export { JoseTokenService } from './auth/token-service';
 export { type TokenService } from '@sovran/domain';
+export { initRedis, getRedis, closeRedis } from './redis';
+export {
+  RedisPresenceStore, InMemoryPresenceStore,
+  type PresenceStore, type PresenceStatus,
+} from './presence-store';
+export {
+  RedisTypingStore, InMemoryTypingStore,
+  type TypingStore,
+} from './typing-store';

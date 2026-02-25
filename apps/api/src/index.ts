@@ -1,5 +1,5 @@
 import { buildServer } from './server';
-import { loadConfig, ApiConfigSchema, createLogger } from '@sovran/shared';
+import { loadConfig, ApiConfigSchema, createLogger, initRedis, closeRedis } from '@sovran/shared';
 import { initPool, closePool } from '@sovran/db';
 
 const logger = createLogger({ name: 'api' });
@@ -8,6 +8,7 @@ async function main() {
   const config = loadConfig(ApiConfigSchema);
 
   initPool({ connectionString: config.DATABASE_URL });
+  initRedis(config.REDIS_URL);
 
   const app = await buildServer({
     jwtActiveKid: config.JWT_ACTIVE_KID,
@@ -17,6 +18,7 @@ async function main() {
     corsOrigin: config.CORS_ORIGIN,
     nodeId: config.NODE_ID,
     maxChannelsPerServer: config.MAX_CHANNELS_PER_SERVER,
+    redisUrl: config.REDIS_URL,
   });
 
   await app.listen({ host: config.API_HOST, port: config.API_PORT });
@@ -25,6 +27,7 @@ async function main() {
   const shutdown = async () => {
     logger.info({}, 'Shutting down API server');
     await app.close();
+    await closeRedis();
     await closePool();
     process.exit(0);
   };

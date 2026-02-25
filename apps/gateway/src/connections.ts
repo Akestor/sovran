@@ -1,3 +1,5 @@
+import type { PresenceStatus } from '@sovran/shared';
+
 export interface ConnectionState {
   userId: string;
   sessionId: string;
@@ -6,6 +8,8 @@ export interface ConnectionState {
   messageCount: number;
   messageWindowStart: number;
   subscriptions: string[];
+  serverIds: string[];
+  presenceStatus: PresenceStatus;
 }
 
 export function createConnectionState(sessionId: string, userId: string): ConnectionState {
@@ -17,5 +21,7 @@ export function createConnectionState(sessionId: string, userId: string): Connec
     messageCount: 0,
     messageWindowStart: Date.now(),
     subscriptions: [],
+    serverIds: [],
+    presenceStatus: 'online',
   };
 }
