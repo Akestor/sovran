@@ -49,7 +49,8 @@ export const ApiConfigSchema = BaseConfigSchema.merge(DatabaseConfigSchema)
     MAX_CHANNELS_PER_SERVER: z.coerce.number().default(200),
   });
 
-export const GatewayConfigSchema = BaseConfigSchema.merge(RedisConfigSchema)
+export const GatewayConfigSchema = BaseConfigSchema.merge(DatabaseConfigSchema)
+  .merge(RedisConfigSchema)
   .merge(NatsConfigSchema)
   .merge(JwtConfigSchema)
   .extend({

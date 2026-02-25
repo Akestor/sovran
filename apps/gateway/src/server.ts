@@ -1,14 +1,17 @@
-import uWS, { type TemplatedApp } from 'uWebSockets.js';
+import uWS, { type TemplatedApp, type WebSocket } from 'uWebSockets.js';
 import { createLogger, type SnowflakeGenerator, type TokenService } from '@sovran/shared';
 import {
   GATEWAY_HELLO,
   GATEWAY_HEARTBEAT,
   GATEWAY_HEARTBEAT_ACK,
+  GATEWAY_READY,
   ClientMessageSchema,
   createEnvelope,
+  NatsSubjects,
 } from '@sovran/proto';
 import { type ConnectionState, createConnectionState } from './connections';
 import { RateLimiter } from './rate-limiter';
+import { type MemberRole } from '@sovran/domain';
 
 const logger = createLogger({ name: 'gateway' });
 
@@ -19,10 +22,16 @@ export interface GatewayOptions {
   rateLimitPerSecond: number;
   idGen: SnowflakeGenerator;
   tokenService: TokenService;
+  fetchUserServers: (userId: string) => Promise<Array<{ id: string; name: string; role: MemberRole }>>;
+}
+
+function subscribeToServerTopics(ws: WebSocket<ConnectionState>, serverId: string): void {
+  ws.subscribe(NatsSubjects.serverEvents(serverId));
+  ws.subscribe(NatsSubjects.serverChannelWildcard(serverId));
 }
 
 export function createGateway(options: GatewayOptions): { app: TemplatedApp; start: () => void } {
-  const { port, host, maxPayloadBytes, rateLimitPerSecond, idGen, tokenService } = options;
+  const { port, host, maxPayloadBytes, rateLimitPerSecond, idGen, tokenService, fetchUserServers } = options;
   const rateLimiter = new RateLimiter(rateLimitPerSecond);
 
   const app = uWS.App();
@@ -75,6 +84,30 @@ export function createGateway(options: GatewayOptions): { app: TemplatedApp; sta
         payload: { heartbeatIntervalMs: 30000 },
       });
       ws.send(JSON.stringify(hello), false);
+
+      fetchUserServers(state.userId).then((servers) => {
+        for (const server of servers) {
+          subscribeToServerTopics(ws, server.id);
+          state.subscriptions.push(
+            NatsSubjects.serverEvents(server.id),
+            NatsSubjects.serverChannelWildcard(server.id),
+          );
+        }
+
+        const ready = createEnvelope(idGen.generate(), GATEWAY_READY, {
+          payload: {
+            sessionId: state.sessionId,
+            userId: state.userId,
+            servers: servers.map((s) => ({ id: s.id, name: s.name, role: s.role })),
+          },
+        });
+        ws.send(JSON.stringify(ready), false);
+      }).catch((err) => {
+        logger.error(
+          { sessionId: state.sessionId, err: err instanceof Error ? err.message : String(err) },
+          'Failed to fetch user servers for READY',
+        );
+      });
     },
 
     message: (ws, message, _isBinary) => {

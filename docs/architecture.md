@@ -26,6 +26,7 @@ Sovran is a GDPR-first, Discord-like realtime communication platform built as a 
 - `packages/proto` → only zod (schema definitions)
 - `packages/shared` → pino, zod, @node-rs/argon2, jose, @sovran/domain (type-only for ports)
 - `packages/db` → pg, @sovran/shared, @sovran/domain (implements repository ports)
+- `apps/gateway` → @sovran/shared, @sovran/proto, @sovran/db (read-only for READY state), @sovran/domain (types only)
 - `apps/*` → may import from packages/*, never from other apps/*
 
 ---
@@ -90,10 +91,34 @@ Security: all containers run as non-root user `sovran` (uid 1001).
 ### Stateless Gateway
 
 - No persistent state inside gateway process
-- Connection metadata is in-memory per instance (session ID, userId, rate limit counters)
+- Connection metadata is in-memory per instance (session ID, userId, rate limit counters, topic subscriptions)
 - Presence stored in Redis with TTL
 - Cross-instance event fanout via NATS pub/sub
 - Gateway subscribes to `srv.>` wildcard, bridges NATS messages to uWS topic publish
+- Read-only DB access for initial state loading (user's server list on connect)
+
+### Gateway READY Flow
+
+On WebSocket connect (after JWT verification):
+
+1. `GATEWAY_HELLO` sent with heartbeat interval
+2. User's server memberships fetched from DB (read-only)
+3. WebSocket subscribes to uWS topics per server: `srv.<id>.events` + `srv.<id>.chan.*.events`
+4. `GATEWAY_READY` sent with `{ sessionId, userId, servers: [{ id, name, role }] }`
+
+This ensures clients receive only events for servers they belong to. Topic subscriptions are automatically cleaned up when the WebSocket closes.
+
+### Server & Channel Management
+
+1. **Create Server**: `POST /servers` — creates server + OWNER membership + #general channel (transactional)
+2. **Join Server**: `POST /servers/join` — validates invite code (hashed, TTL, max uses), adds MEMBER role
+3. **Leave Server**: `POST /servers/:id/leave` — removes membership (owner cannot leave)
+4. **Delete Server**: `DELETE /servers/:id` — soft-delete (owner only), publishes `SERVER_DELETE` event
+5. **Create Channel**: `POST /servers/:id/channels` — permission check (ADMIN+), limit check, unique name
+6. **Rename Channel**: `PATCH /channels/:id` — permission check (ADMIN+), unique name
+7. **Delete Channel**: `DELETE /channels/:id` — permission check (ADMIN+), soft-delete
+8. **Create Invite**: `POST /servers/:id/invites` — generates opaque code, stores only SHA-256 hash
+9. **Owner Deletion**: deterministic transfer (oldest admin → oldest member → delete server)
 
 ### Snowflake ID Generation
 
@@ -132,11 +157,13 @@ Guarantees reliable event delivery:
 
 | Subject | Purpose |
 |---|---|
-| `srv.<serverId>.chan.<channelId>.events` | Channel events |
+| `srv.<serverId>.events` | Server-level events (join, leave, delete, owner transfer) |
+| `srv.<serverId>.chan.<channelId>.events` | Channel events (messages, create, delete, rename) |
+| `srv.<serverId>.chan.*.events` | Wildcard for all channels in a server |
 | `srv.<serverId>.presence` | Server presence updates |
 | `user.<userId>.events` | User-scoped events |
 | `user.<userId>.dm.events` | Direct message events |
-| `srv.>` | Wildcard for gateway subscription |
+| `srv.>` | Global wildcard for NATS→uWS bridge |
 
 ### Backpressure & Protection
 

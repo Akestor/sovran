@@ -14,6 +14,8 @@ All features must be developed with privacy-by-design and data minimization as d
 | **Invite codes** | Code hashes, usage counts | PostgreSQL `invite_codes` | No PII (hashed) |
 | **Content data** | Messages, attachments | PostgreSQL + object storage | Separate from identity |
 | **Ephemeral data** | Presence, typing indicators | Redis with TTL | Not persisted |
+| **Server data** | Server name, channels, member roles | PostgreSQL `servers`, `channels`, `members` | Minimal PII (userId only) |
+| **Server invites** | Code hashes, usage counts | PostgreSQL `server_invites` | No PII (hashed) |
 | **System data** | Outbox events, migrations | PostgreSQL | No PII |
 
 ### Separation principle
@@ -33,6 +35,9 @@ When a user exercises their right to erasure:
    - **PostgreSQL `users`**: `username → deleted_<id>`, `display_name → 'Deleted User'`, `password_hash → '!'`
    - **PostgreSQL `refresh_tokens`**: all tokens revoked, then cascade-deleted
    - **PostgreSQL `invite_codes`**: `created_by` set to NULL (ON DELETE SET NULL)
+   - **PostgreSQL `members`**: rows cascade-deleted (ON DELETE CASCADE on `user_id`)
+   - **PostgreSQL `server_invites`**: `created_by` set to NULL (ON DELETE SET NULL)
+   - **PostgreSQL `servers`**: ownership transferred (oldest admin → oldest member → server deleted)
    - **Redis cache**: user-related cache keys purged (future)
    - **Object storage**: user-uploaded attachments deleted (future)
 4. `USER_DELETED` outbox event published for downstream consumers
@@ -83,6 +88,10 @@ When a user requests a data export:
 | `refresh_tokens` | — | all | Technical security data, no user-facing content |
 | `invite_codes` | — | all | Operational access-control artifacts |
 | `outbox_events` | — | all | System infrastructure, not user data |
+| `servers` | id, name, created_at | owner_id only if user is owner | Server metadata, minimal PII |
+| `channels` | id, name, type, position, created_at | — | No direct user PII |
+| `members` | server_id, role, created_at | — | Cascade-deleted with user, role is functional data |
+| `server_invites` | — | all | Operational access-control artifacts |
 
 New tables and fields must document their retention approach before merging.
 

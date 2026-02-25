@@ -60,6 +60,12 @@ importers:
 
   apps/gateway:
     dependencies:
+      '@sovran/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@sovran/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
       '@sovran/proto':
         specifier: workspace:*
         version: link:../../packages/proto

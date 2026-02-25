@@ -1,5 +1,6 @@
 import { loadConfig, GatewayConfigSchema, createLogger, SnowflakeGenerator, JoseTokenService } from '@sovran/shared';
 import { NatsSubjects } from '@sovran/proto';
+import { initPool, closePool, withTransaction, PgServerRepository } from '@sovran/db';
 import { createGateway } from './server';
 import { initNats, closeNats, bridgeNatsToWs } from './nats';
 
@@ -15,6 +16,10 @@ async function main() {
     accessTokenTtl: config.JWT_ACCESS_TOKEN_TTL,
   });
 
+  initPool({ connectionString: config.DATABASE_URL });
+
+  const serverRepo = new PgServerRepository();
+
   const natsConn = await initNats(config.NATS_URL);
 
   const { app, start } = createGateway({
@@ -24,6 +29,7 @@ async function main() {
     rateLimitPerSecond: config.RATE_LIMIT_PER_SECOND,
     idGen,
     tokenService,
+    fetchUserServers: (userId) => withTransaction((tx) => serverRepo.listByUserId(tx, userId)),
   });
 
   bridgeNatsToWs(natsConn, app, NatsSubjects.allServerEvents);
@@ -33,6 +39,7 @@ async function main() {
   const shutdown = async () => {
     logger.info({}, 'Shutting down gateway');
     await closeNats();
+    await closePool();
     process.exit(0);
   };
 

@@ -8,6 +8,8 @@
   "include": ["src"],
   "references": [
     { "path": "../../packages/shared" },
-    { "path": "../../packages/proto" }
+    { "path": "../../packages/proto" },
+    { "path": "../../packages/db" },
+    { "path": "../../packages/domain" }
   ]
 }

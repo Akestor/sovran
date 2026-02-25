@@ -96,6 +96,7 @@ services:
       NODE_ENV: production
       LOG_LEVEL: info
       NODE_ID: 2
+      DATABASE_URL: postgresql://sovran:sovran_dev@postgres:5432/sovran
       REDIS_URL: redis://redis:6379
       NATS_URL: nats://nats:4222
       GATEWAY_HOST: 0.0.0.0
@@ -107,6 +108,8 @@ services:
     ports:
       - '4000:4000'
     depends_on:
+      db-migrate:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
       nats:
