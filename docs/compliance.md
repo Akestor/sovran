@@ -15,6 +15,7 @@ All features must be developed with privacy-by-design and data minimization as d
 | **Content data** | Messages, attachments | PostgreSQL + object storage | Separate from identity |
 | **Ephemeral data** | Presence, typing indicators | Redis with TTL | Not persisted |
 | **Server data** | Server name, channels, member roles | PostgreSQL `servers`, `channels`, `members` | Minimal PII (userId only) |
+| **Messages** | Message content, author reference | PostgreSQL `messages` | Content data (separate from identity) |
 | **Server invites** | Code hashes, usage counts | PostgreSQL `server_invites` | No PII (hashed) |
 | **System data** | Outbox events, migrations | PostgreSQL | No PII |
 
@@ -35,6 +36,7 @@ When a user exercises their right to erasure:
    - **PostgreSQL `users`**: `username → deleted_<id>`, `display_name → 'Deleted User'`, `password_hash → '!'`
    - **PostgreSQL `refresh_tokens`**: all tokens revoked, then cascade-deleted
    - **PostgreSQL `invite_codes`**: `created_by` set to NULL (ON DELETE SET NULL)
+   - **PostgreSQL `messages`**: `author_id` set to NULL (ON DELETE SET NULL), content retained for channel context
    - **PostgreSQL `members`**: rows cascade-deleted (ON DELETE CASCADE on `user_id`)
    - **PostgreSQL `server_invites`**: `created_by` set to NULL (ON DELETE SET NULL)
    - **PostgreSQL `servers`**: ownership transferred (oldest admin → oldest member → server deleted)
@@ -92,6 +94,7 @@ When a user requests a data export:
 | `channels` | id, name, type, position, created_at | — | No direct user PII |
 | `members` | server_id, role, created_at | — | Cascade-deleted with user, role is functional data |
 | `server_invites` | — | all | Operational access-control artifacts |
+| `messages` | id, channel_id, content, created_at | author_id only if user is author | Message content is user data |
 
 New tables and fields must document their retention approach before merging.
 

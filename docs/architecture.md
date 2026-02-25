@@ -120,6 +120,22 @@ This ensures clients receive only events for servers they belong to. Topic subsc
 8. **Create Invite**: `POST /servers/:id/invites` — generates opaque code, stores only SHA-256 hash
 9. **Owner Deletion**: deterministic transfer (oldest admin → oldest member → delete server)
 
+### Messaging
+
+1. **Send Message**: `POST /servers/:sid/channels/:cid/messages` — membership + channel check, rate limit (5/5s per user+channel), content validation (max 4000 chars)
+2. **List Messages**: `GET /servers/:sid/channels/:cid/messages?before=<id>&limit=50` — cursor-based pagination using Snowflake IDs (DESC order), membership check
+3. **Delete Message**: `DELETE /messages/:id` — author can delete own, ADMIN/OWNER can delete any, soft-delete + outbox event
+
+Data flow for realtime delivery:
+```
+Client → API (validates, writes message + outbox) → Worker (polls outbox)
+  → NATS (srv.<serverId>.chan.<channelId>.events)
+  → Gateway (bridges NATS to uWS topic)
+  → WebSocket clients (subscribed to server topics)
+```
+
+Rate limiting: per user+channel sliding window (in-memory, replaceable with Redis for multi-instance)
+
 ### Snowflake ID Generation
 
 64-bit IDs with:
