@@ -1,0 +1,193 @@
+# Cursor Rules — DSGVO-konformer Discord-Klon
+
+You are working in a privacy-first, GDPR-compliant realtime chat application (Discord-like).
+Your job: make changes that are secure, testable, and consistent with the architecture.
+
+## 0) Non-negotiables (MUST)
+- NEVER log message content, attachment content, tokens, passwords, email addresses, IP addresses, device IDs, session IDs, or any other PII.
+- NEVER introduce new third-party analytics/telemetry without explicit opt-in and documentation.
+- NEVER store secrets in code or in the repo. Use env vars + documented examples.
+- NEVER bypass authorization checks "for simplicity".
+- Any new data stored must have: purpose, retention, deletion strategy, and DSAR export mapping.
+
+If any request conflicts with these rules, explain the conflict and propose a compliant alternative.
+
+---
+
+## 1) High-level architecture
+We use a modular monolith with clear module boundaries:
+- apps/api      : HTTP API (auth/admin/crud)
+- apps/gateway  : WebSocket realtime gateway (events, presence, typing)
+- apps/worker   : background jobs (deletion, retention, dsar export, purge)
+- packages/domain: pure business/domain logic (no DB, no Redis, no framework imports)
+- packages/db    : migrations + repositories + query layer
+- packages/proto : single source of truth for event schemas/contracts
+- packages/shared: logging, error handling, utils (safe-by-default)
+
+### Rules
+- Domain code MUST be pure (no IO): no Postgres/Redis/S3 calls, no HTTP, no WS.
+- IO happens in adapters (db/, gateway/, api/, worker/).
+- Prefer dependency inversion: domain defines interfaces/ports, adapters implement them.
+- Keep modules loosely coupled; avoid circular dependencies.
+
+---
+
+## 2) Data protection & GDPR requirements (default posture)
+We follow privacy-by-design and data minimization.
+
+### Data categories & minimization
+- Separate account/identity data from content data where possible.
+- Store only what is necessary for core functionality.
+- Avoid storing IP addresses; if needed for abuse prevention, document retention and minimization.
+
+### Right to erasure (Art. 17)
+Any feature that stores user-related data MUST define deletion behavior:
+- What is deleted vs anonymized?
+- How deletions propagate to: DB, caches, search indexes, object storage, derived tables.
+- Ensure deletes are idempotent and safe to retry.
+
+### DSAR export (Art. 15/20)
+If a new data field is introduced that is user-related, it MUST be included (or explicitly excluded with a reason) in DSAR export mapping.
+
+### Retention
+Any new table/field MUST include a retention approach:
+- default retention policy (if any)
+- how retention sweep works (worker job)
+- how to handle backups/restore concerns (tombstones if applicable)
+
+---
+
+## 3) Security & authz/authn
+- Authentication: short-lived access tokens + refresh rotation (implementation-specific).
+- Authorization: enforced on every request/event.
+- Access control is server/channel scoped and must be checked in both API and Gateway.
+
+### MUST
+- Validate membership + permissions for channel actions.
+- Use server-side checks even if client "should" not call something.
+- Rate limit sensitive endpoints/events (login, message send, upload init, join/invite).
+
+---
+
+## 4) Realtime gateway rules
+Gateway is stateless where possible and uses pub/sub for fanout (implementation-specific).
+- Events are defined ONLY in packages/proto (single source of truth).
+- Do not invent event names or payload shapes.
+- Events must include stable IDs and timestamps if required by the existing contracts.
+- Delivery semantics: assume at-least-once; use message IDs for dedupe.
+
+Presence/typing are ephemeral:
+- Keep in Redis or in-memory with TTL; do not persist unless explicitly required.
+- Never treat presence as a source of truth.
+
+---
+
+## 5) Storage rules
+Postgres is the source of truth.
+Redis is cache/ephemeral state only.
+
+### Database changes
+- Every schema change MUST have a migration.
+- Migrations must be backward compatible whenever possible:
+  - add columns nullable first, backfill via worker, then enforce constraints later
+- Add indexes when introducing new query patterns.
+- Avoid storing derived duplicates unless necessary; if duplicated, define purge rules.
+
+### Attachments / object storage
+- Use pre-signed uploads and store only metadata in DB.
+- Validate content type and size; run virus scanning pipeline if present.
+- Deletion must remove object storage artifacts.
+
+### Search
+- Avoid introducing external search unless necessary.
+- If search index exists, implement delete propagation (purge on hard delete).
+
+---
+
+## 6) Logging, metrics, tracing (privacy-safe)
+- Use the project's safe logger wrapper ONLY.
+- Logs must be structured and privacy-redacted by default.
+- No raw request bodies, no WS payload logs, no stack traces containing PII.
+- Prefer metrics counters/gauges over logs for operational visibility.
+- Tracing: no payloads; only IDs that are non-PII and not secrets.
+
+---
+
+## 7) Validation & error handling
+- Validate inputs at the boundary (API/gateway) and enforce business invariants in domain.
+- Use a consistent error type (AppError or equivalent) with:
+  - code, message, httpStatus/wsCloseCode, safeMeta
+- Error messages returned to clients must not leak internal details.
+
+---
+
+## 8) Testing requirements
+Any meaningful change MUST include tests:
+- Domain logic: unit tests (fast, pure)
+- Repositories: integration tests if applicable (DB)
+- API/gateway handlers: contract tests or integration tests if present
+
+Definition of Done:
+- tests pass
+- lint/typecheck pass
+- migrations included (if schema changed)
+- docs updated if behavior/compliance changes
+
+---
+
+## 9) Coding style & maintainability
+- Prefer small, composable functions.
+- No large refactors in the same change as a feature unless required.
+- Keep changes minimal and focused.
+- Follow existing patterns and naming conventions.
+- No TODOs without a linked issue reference (if the repo uses issues).
+
+---
+
+## 10) Change workflow (how to respond)
+When implementing a task, ALWAYS follow:
+1) PLAN: list files to change, steps, and risks (privacy/security/migrations)
+2) PATCH: implement the minimal change set
+3) VERIFY: show how you validated (tests run, checks)
+
+If information is missing, make the safest assumption and proceed, documenting it.
+
+---
+
+## 11) Prompt guardrails (what to do if asked)
+If asked to add analytics, tracking, or monitoring:
+- default to privacy-preserving, opt-in approaches
+- document data collected + retention + purpose
+- avoid third-party services unless required
+
+If asked to "just log it":
+- refuse logging PII and propose safe alternatives (metrics, redacted logs, synthetic IDs)
+
+If asked to store something new:
+- ask: is it necessary? can we derive it? can we TTL it?
+- implement retention + deletion + dsar mapping
+
+---
+
+## 12) Contracts-first rule
+- REST: if OpenAPI / zod schemas exist, update schemas first, then code.
+- WS: update packages/proto event schema first, then gateway/client handling.
+- Never break existing public contracts without a versioning strategy.
+
+---
+
+## 13) Files that must be kept up-to-date
+If you change behavior related to these, update docs:
+- docs/architecture.md
+- docs/compliance.md (or docs/dsar.md + docs/data-retention.md)
+- docs/threat-model.md (if security relevant)
+
+---
+
+## 14) Defaults for new code
+- Secure defaults: deny by default, allow explicitly.
+- Privacy defaults: minimal storage, minimal logs.
+- Use UTC timestamps.
+- Prefer stable, non-PII identifiers (UUID/Snowflake-like) over emails/usernames.
+
+END.

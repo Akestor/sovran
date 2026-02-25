@@ -1,0 +1,38 @@
+{
+  "name": "sovran",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -n api,gw,worker -c blue,green,yellow \"pnpm dev:api\" \"pnpm dev:gateway\" \"pnpm dev:worker\"",
+    "dev:api": "pnpm --filter @sovran/api dev",
+    "dev:gateway": "pnpm --filter @sovran/gateway dev",
+    "dev:worker": "pnpm --filter @sovran/worker dev",
+    "dev:infra": "docker compose -f docker-compose.dev.yml up -d",
+    "dev:infra:down": "docker compose -f docker-compose.dev.yml down",
+    "dev:full": "docker compose -f docker-compose.full.yml up --build",
+    "dev:full:down": "docker compose -f docker-compose.full.yml down",
+    "build": "pnpm -r build",
+    "lint": "eslint --ext .ts apps packages",
+    "typecheck": "pnpm -r typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "format": "prettier --write \"apps/**/*.ts\" \"packages/**/*.ts\"",
+    "format:check": "prettier --check \"apps/**/*.ts\" \"packages/**/*.ts\"",
+    "db:migrate": "pnpm --filter @sovran/db migrate"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "concurrently": "^8.2.0",
+    "eslint": "^8.57.0",
+    "prettier": "^3.2.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.3.0"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.1.0"
+}

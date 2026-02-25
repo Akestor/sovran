@@ -1,0 +1,21 @@
+{
+  "name": "@sovran/worker",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "nats": "^2.19.0",
+    "pg": "^8.11.0",
+    "@sovran/shared": "workspace:*",
+    "@sovran/proto": "workspace:*",
+    "@sovran/db": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.11.0"
+  }
+}

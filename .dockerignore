@@ -1,0 +1,15 @@
+**/node_modules
+**/dist
+**/*.tsbuildinfo
+.env
+.env.local
+*.log
+coverage
+.turbo
+.git
+.gitignore
+.cursorrules
+.eslintrc.cjs
+.prettierrc
+docs
+README.md
