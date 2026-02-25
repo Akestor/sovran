@@ -16,6 +16,7 @@ async function main() {
     jwtRefreshTokenTtlDays: config.JWT_REFRESH_TOKEN_TTL_DAYS,
     corsOrigin: config.CORS_ORIGIN,
     nodeId: config.NODE_ID,
+    maxChannelsPerServer: config.MAX_CHANNELS_PER_SERVER,
   });
 
   await app.listen({ host: config.API_HOST, port: config.API_PORT });
