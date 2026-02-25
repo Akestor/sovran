@@ -1,4 +1,4 @@
-import { loadConfig, GatewayConfigSchema, createLogger, SnowflakeGenerator } from '@sovran/shared';
+import { loadConfig, GatewayConfigSchema, createLogger, SnowflakeGenerator, JoseTokenService } from '@sovran/shared';
 import { NatsSubjects } from '@sovran/proto';
 import { createGateway } from './server';
 import { initNats, closeNats, bridgeNatsToWs } from './nats';
@@ -9,6 +9,12 @@ async function main() {
   const config = loadConfig(GatewayConfigSchema);
   const idGen = new SnowflakeGenerator(config.NODE_ID);
 
+  const tokenService = new JoseTokenService({
+    activeKid: config.JWT_ACTIVE_KID,
+    keys: config.JWT_KEYS,
+    accessTokenTtl: config.JWT_ACCESS_TOKEN_TTL,
+  });
+
   const natsConn = await initNats(config.NATS_URL);
 
   const { app, start } = createGateway({
@@ -17,6 +23,7 @@ async function main() {
     maxPayloadBytes: config.MAX_PAYLOAD_BYTES,
     rateLimitPerSecond: config.RATE_LIMIT_PER_SECOND,
     idGen,
+    tokenService,
   });
 
   bridgeNatsToWs(natsConn, app, NatsSubjects.allServerEvents);

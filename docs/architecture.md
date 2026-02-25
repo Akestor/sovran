@@ -24,7 +24,8 @@ Sovran is a GDPR-first, Discord-like realtime communication platform built as a 
 
 - `packages/domain` → no imports from apps/*, db clients, redis, S3, HTTP, WS
 - `packages/proto` → only zod (schema definitions)
-- `packages/shared` → only pino, zod (no business logic)
+- `packages/shared` → pino, zod, @node-rs/argon2, jose, @sovran/domain (type-only for ports)
+- `packages/db` → pg, @sovran/shared, @sovran/domain (implements repository ports)
 - `apps/*` → may import from packages/*, never from other apps/*
 
 ---
@@ -65,10 +66,31 @@ Security: all containers run as non-root user `sovran` (uid 1001).
 
 ## Scaling Architecture
 
+### Authentication Flow
+
+1. **Registration**: `POST /auth/register` — requires invite code, returns access + refresh tokens
+2. **Login**: `POST /auth/login` — returns access + refresh tokens
+3. **Refresh**: `POST /auth/refresh` — rotates refresh token (family-based), detects reuse
+4. **Logout**: `POST /auth/logout` — revokes all refresh tokens for user
+5. **Me**: `GET /auth/me` — returns authenticated user profile
+
+- Access tokens: short-lived JWT (HS256, default 15min), signed with active KID
+- Refresh tokens: opaque random bytes, SHA-256 hashed in DB, family-based rotation
+- JWT key rotation: multiple keys supported, verify accepts all, sign uses active KID only
+- Password hashing: argon2id via @node-rs/argon2
+- Registration gating: invite codes (hashed, TTL, single-use) — no IP logging
+
+### Gateway Authentication
+
+- WebSocket connections require `?token=<JWT>` query parameter on upgrade
+- Token verified during HTTP upgrade before WebSocket handshake completes
+- Invalid/missing token returns 401 and connection is rejected
+- Authenticated userId stored in connection state for authorization checks
+
 ### Stateless Gateway
 
 - No persistent state inside gateway process
-- Connection metadata is in-memory per instance (session ID, auth state, rate limit counters)
+- Connection metadata is in-memory per instance (session ID, userId, rate limit counters)
 - Presence stored in Redis with TTL
 - Cross-instance event fanout via NATS pub/sub
 - Gateway subscribes to `srv.>` wildcard, bridges NATS messages to uWS topic publish

@@ -9,7 +9,9 @@ All features must be developed with privacy-by-design and data minimization as d
 
 | Category | Examples | Storage | PII? |
 |---|---|---|---|
-| **Account data** | userId, display name | PostgreSQL | Minimal PII |
+| **Account data** | userId, username, display name, password hash | PostgreSQL `users` | Minimal PII |
+| **Auth tokens** | Refresh token hashes, family IDs | PostgreSQL `refresh_tokens` | No PII (hashed) |
+| **Invite codes** | Code hashes, usage counts | PostgreSQL `invite_codes` | No PII (hashed) |
 | **Content data** | Messages, attachments | PostgreSQL + object storage | Separate from identity |
 | **Ephemeral data** | Presence, typing indicators | Redis with TTL | Not persisted |
 | **System data** | Outbox events, migrations | PostgreSQL | No PII |
@@ -25,19 +27,21 @@ Account/identity data is kept separate from content data where possible, minimiz
 
 When a user exercises their right to erasure:
 
-1. A deletion request is created in the database
-2. The deletion worker job processes pending requests
-3. Data is deleted or anonymized across all storage layers:
-   - **PostgreSQL**: user record anonymized, messages either deleted or author anonymized
-   - **Redis cache**: all user-related cache keys purged
-   - **Object storage**: all user-uploaded attachments deleted
-   - **Search indexes**: user data purged (if search is introduced)
-4. The deletion request is marked as completed
+1. User record is soft-deleted (`deleted_at` set) via API
+2. The deletion worker job processes users with `deleted_at IS NOT NULL` and non-anonymized username
+3. Data is anonymized:
+   - **PostgreSQL `users`**: `username → deleted_<id>`, `display_name → 'Deleted User'`, `password_hash → '!'`
+   - **PostgreSQL `refresh_tokens`**: all tokens revoked, then cascade-deleted
+   - **PostgreSQL `invite_codes`**: `created_by` set to NULL (ON DELETE SET NULL)
+   - **Redis cache**: user-related cache keys purged (future)
+   - **Object storage**: user-uploaded attachments deleted (future)
+4. `USER_DELETED` outbox event published for downstream consumers
 
 **Properties**:
-- Idempotent: safe to retry on failure
-- Auditable: completion status tracked without storing PII
-- Propagation: covers all storage layers systematically
+- Idempotent: `softDelete` checks `deleted_at IS NULL`, worker uses `SKIP LOCKED`
+- No re-normalization conflict: `deleted_<id>` is already lowercase
+- Partial unique index excludes deleted users from username uniqueness check
+- Propagation: covers all current storage layers systematically
 
 ---
 
@@ -64,11 +68,21 @@ When a user requests a data export:
 
 | Data Type | Retention Policy | Sweep Strategy |
 |---|---|---|
-| Published outbox events | 7 days (configurable) | Worker retention job deletes expired rows |
+| Published outbox events | 7 days | Worker retention job (`runRetentionJob`) |
 | Session data | TTL-based | Redis key expiry (automatic) |
-| Refresh tokens | Configurable max lifetime | Worker sweep or Redis TTL |
-| Deletion request records | 90 days after completion | Worker retention job |
-| DSAR export archives | 30 days after generation | Worker retention job + object storage cleanup |
+| Refresh tokens (expired/revoked) | 30 days after expiry/revocation | Worker retention job (`deleteExpired`) |
+| Invite codes | Kept for audit; expired cleaned after 90d | Worker retention job (future) |
+| Deletion request records | 90 days after completion | Worker retention job (future) |
+| DSAR export archives | 30 days after generation | Worker retention job + object storage cleanup (future) |
+
+### DSAR Field Mapping
+
+| Table | Fields Exported | Excluded | Reason for Exclusion |
+|---|---|---|---|
+| `users` | id, username, display_name, created_at, updated_at | password_hash | Security credential, not user data |
+| `refresh_tokens` | — | all | Technical security data, no user-facing content |
+| `invite_codes` | — | all | Operational access-control artifacts |
+| `outbox_events` | — | all | System infrastructure, not user data |
 
 New tables and fields must document their retention approach before merging.
 

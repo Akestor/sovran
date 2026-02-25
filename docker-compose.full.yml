@@ -102,6 +102,8 @@ services:
       GATEWAY_PORT: 4000
       MAX_PAYLOAD_BYTES: 65536
       RATE_LIMIT_PER_SECOND: 30
+      JWT_ACTIVE_KID: key-1
+      JWT_KEYS: '[{"kid":"key-1","secret":"docker-compose-dev-secret-min-32-chars!!"}]'
     ports:
       - '4000:4000'
     depends_on:

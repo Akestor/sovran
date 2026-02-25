@@ -50,6 +50,7 @@ export const ApiConfigSchema = BaseConfigSchema.merge(DatabaseConfigSchema)
 
 export const GatewayConfigSchema = BaseConfigSchema.merge(RedisConfigSchema)
   .merge(NatsConfigSchema)
+  .merge(JwtConfigSchema)
   .extend({
     GATEWAY_HOST: z.string().default('0.0.0.0'),
     GATEWAY_PORT: z.coerce.number().default(4000),

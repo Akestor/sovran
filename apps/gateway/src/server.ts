@@ -1,5 +1,5 @@
 import uWS, { type TemplatedApp } from 'uWebSockets.js';
-import { createLogger, type SnowflakeGenerator } from '@sovran/shared';
+import { createLogger, type SnowflakeGenerator, type TokenService } from '@sovran/shared';
 import {
   GATEWAY_HELLO,
   GATEWAY_HEARTBEAT,
@@ -18,10 +18,11 @@ export interface GatewayOptions {
   maxPayloadBytes: number;
   rateLimitPerSecond: number;
   idGen: SnowflakeGenerator;
+  tokenService: TokenService;
 }
 
 export function createGateway(options: GatewayOptions): { app: TemplatedApp; start: () => void } {
-  const { port, host, maxPayloadBytes, rateLimitPerSecond, idGen } = options;
+  const { port, host, maxPayloadBytes, rateLimitPerSecond, idGen, tokenService } = options;
   const rateLimiter = new RateLimiter(rateLimitPerSecond);
 
   const app = uWS.App();
@@ -32,21 +33,43 @@ export function createGateway(options: GatewayOptions): { app: TemplatedApp; sta
     maxBackpressure: 1024 * 1024,
 
     upgrade: (res, req, context) => {
-      const sessionId = idGen.generate();
-      const state = createConnectionState(sessionId);
+      const query = req.getQuery();
+      const params = new URLSearchParams(query);
+      const token = params.get('token');
 
-      res.upgrade<ConnectionState>(
-        state,
-        req.getHeader('sec-websocket-key'),
-        req.getHeader('sec-websocket-protocol'),
-        req.getHeader('sec-websocket-extensions'),
-        context,
-      );
+      const secWsKey = req.getHeader('sec-websocket-key');
+      const secWsProtocol = req.getHeader('sec-websocket-protocol');
+      const secWsExtensions = req.getHeader('sec-websocket-extensions');
+
+      if (!token) {
+        res.writeStatus('401 Unauthorized').end('Missing token');
+        return;
+      }
+
+      let aborted = false;
+      res.onAborted(() => { aborted = true; });
+
+      tokenService.verifyAccessToken(token).then(({ userId }) => {
+        if (aborted) return;
+        const sessionId = idGen.generate();
+        const state = createConnectionState(sessionId, userId);
+
+        res.upgrade<ConnectionState>(
+          state,
+          secWsKey,
+          secWsProtocol,
+          secWsExtensions,
+          context,
+        );
+      }).catch(() => {
+        if (aborted) return;
+        res.writeStatus('401 Unauthorized').end('Invalid token');
+      });
     },
 
     open: (ws) => {
       const state = ws.getUserData();
-      logger.info({ sessionId: state.sessionId }, 'WebSocket connection opened');
+      logger.info({ sessionId: state.sessionId }, 'WebSocket connection opened (authenticated)');
 
       const hello = createEnvelope(idGen.generate(), GATEWAY_HELLO, {
         payload: { heartbeatIntervalMs: 30000 },

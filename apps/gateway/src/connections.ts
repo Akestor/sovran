@@ -1,5 +1,5 @@
 export interface ConnectionState {
-  userId: string | null;
+  userId: string;
   sessionId: string;
   authenticated: boolean;
   lastHeartbeat: number;
@@ -8,11 +8,11 @@ export interface ConnectionState {
   subscriptions: string[];
 }
 
-export function createConnectionState(sessionId: string): ConnectionState {
+export function createConnectionState(sessionId: string, userId: string): ConnectionState {
   return {
-    userId: null,
+    userId,
     sessionId,
-    authenticated: false,
+    authenticated: true,
     lastHeartbeat: Date.now(),
     messageCount: 0,
     messageWindowStart: Date.now(),

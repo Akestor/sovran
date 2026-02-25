@@ -9,11 +9,12 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "nats": "^2.19.0",
-    "pg": "^8.11.0",
-    "@sovran/shared": "workspace:*",
+    "@sovran/db": "workspace:*",
+    "@sovran/domain": "workspace:^",
     "@sovran/proto": "workspace:*",
-    "@sovran/db": "workspace:*"
+    "@sovran/shared": "workspace:*",
+    "nats": "^2.19.0",
+    "pg": "^8.11.0"
   },
   "devDependencies": {
     "@types/pg": "^8.11.0"

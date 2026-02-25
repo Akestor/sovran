@@ -25,3 +25,4 @@ export {
 export { touchHealthFile, startHealthBeat } from './healthcheck';
 export { Argon2PasswordHasher } from './auth/password-hasher';
 export { JoseTokenService } from './auth/token-service';
+export { type TokenService } from '@sovran/domain';
