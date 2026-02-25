@@ -1,10 +1,11 @@
 import Fastify from 'fastify';
-import { createLogger, SnowflakeGenerator, JoseTokenService, Argon2PasswordHasher } from '@sovran/shared';
-import { AuthService, ServerService, ChannelService } from '@sovran/domain';
+import { createLogger, SnowflakeGenerator, JoseTokenService, Argon2PasswordHasher, InMemoryMessageRateLimiter } from '@sovran/shared';
+import { AuthService, ServerService, ChannelService, MessageService } from '@sovran/domain';
 import {
   withTransaction,
   PgUserRepository, PgRefreshTokenRepository, PgInviteCodeRepository,
   PgServerRepository, PgChannelRepository, PgMemberRepository, PgServerInviteRepository,
+  PgMessageRepository,
   appendOutboxEvent,
 } from '@sovran/db';
 import { registerErrorHandler } from './plugins/error-handler';
@@ -13,6 +14,7 @@ import { createRateLimiter } from './plugins/rate-limit';
 import { registerAuthRoutes } from './routes/auth';
 import { registerServerRoutes } from './routes/servers';
 import { registerChannelRoutes } from './routes/channels';
+import { registerMessageRoutes } from './routes/messages';
 
 const logger = createLogger({ name: 'api' });
 
@@ -82,6 +84,16 @@ export async function buildServer(config: ServerConfig) {
     maxChannelsPerServer: config.maxChannelsPerServer,
   });
 
+  const messageService = new MessageService({
+    messageRepo: new PgMessageRepository(),
+    memberRepo: new PgMemberRepository(),
+    channelRepo: new PgChannelRepository(),
+    outbox,
+    rateLimiter: new InMemoryMessageRateLimiter(),
+    generateId: () => idGen.generate(),
+    withTransaction,
+  });
+
   const authenticate = createAuthMiddleware(tokenService);
   const authRateLimit = createRateLimiter({ windowMs: 60_000, maxRequests: 20 });
 
@@ -92,6 +104,7 @@ export async function buildServer(config: ServerConfig) {
   registerAuthRoutes(app, { authService, authenticate, authRateLimit });
   registerServerRoutes(app, { serverService, authenticate });
   registerChannelRoutes(app, { channelService, authenticate });
+  registerMessageRoutes(app, { messageService, authenticate });
 
   app.addHook('onRequest', (_request, _reply, done) => {
     logger.info(
