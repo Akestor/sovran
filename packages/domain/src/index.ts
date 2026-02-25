@@ -36,3 +36,5 @@ export type {
 } from './server-ports';
 export { ServerService, ServerError, type ServerServiceDeps } from './server-service';
 export { ChannelService, ChannelError, type ChannelServiceDeps } from './channel-service';
+export type { Message } from './message';
+export type { MessageRepository } from './message-ports';

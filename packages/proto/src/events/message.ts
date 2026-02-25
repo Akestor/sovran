@@ -9,6 +9,8 @@ export const MessageCreatePayload = z.object({
   channelId: z.string(),
   serverId: z.string(),
   authorId: z.string(),
+  content: z.string(),
+  createdAt: z.string(),
   nonce: z.string().optional(),
 });
 
@@ -16,6 +18,8 @@ export const MessageUpdatePayload = z.object({
   messageId: z.string(),
   channelId: z.string(),
   serverId: z.string(),
+  content: z.string(),
+  editedAt: z.string(),
 });
 
 export const MessageDeletePayload = z.object({

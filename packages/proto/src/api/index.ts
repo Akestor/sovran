@@ -39,3 +39,12 @@ export {
   type ServerInviteResponse,
   type JoinServerRequest,
 } from './server';
+export {
+  MESSAGE_CONTENT_MAX_LENGTH,
+  SendMessageRequestSchema,
+  MessageResponseSchema,
+  ListMessagesQuerySchema,
+  type SendMessageRequest,
+  type MessageResponse,
+  type ListMessagesQuery,
+} from './message';
