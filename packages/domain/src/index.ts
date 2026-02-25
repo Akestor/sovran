@@ -16,3 +16,21 @@ export type {
   TokenService,
 } from './ports';
 export { AuthService, AuthError, type AuthServiceDeps, type AuthResult } from './auth-service';
+export type { Server, Channel, Member, MemberRole, ServerInvite } from './server';
+export {
+  hasRole,
+  canCreateChannel,
+  canDeleteChannel,
+  canRenameChannel,
+  canDeleteServer,
+  canManageInvites,
+  canKickMember,
+  canCreateChannelWithLimit,
+} from './permissions';
+export { resolveOwnerTransfer, type OwnerTransferResult } from './owner-transfer';
+export type {
+  ServerRepository,
+  ChannelRepository,
+  MemberRepository,
+  ServerInviteRepository,
+} from './server-ports';

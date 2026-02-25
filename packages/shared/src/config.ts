@@ -46,6 +46,7 @@ export const ApiConfigSchema = BaseConfigSchema.merge(DatabaseConfigSchema)
     API_PORT: z.coerce.number().default(3000),
     CORS_ORIGIN: z.string().default('http://localhost:5173'),
     INVITE_CODE_TTL_DAYS: z.coerce.number().default(7),
+    MAX_CHANNELS_PER_SERVER: z.coerce.number().default(200),
   });
 
 export const GatewayConfigSchema = BaseConfigSchema.merge(RedisConfigSchema)

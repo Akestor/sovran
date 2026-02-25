@@ -1,6 +1,10 @@
 export const NatsSubjects = {
+  serverEvents: (serverId: string) => `srv.${serverId}.events`,
+
   channelEvents: (serverId: string, channelId: string) =>
     `srv.${serverId}.chan.${channelId}.events`,
+
+  serverChannelWildcard: (serverId: string) => `srv.${serverId}.chan.*.events`,
 
   serverPresence: (serverId: string) => `srv.${serverId}.presence`,
 
