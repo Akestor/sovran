@@ -77,6 +77,9 @@ services:
       REDIS_URL: redis://redis:6379
       API_HOST: 0.0.0.0
       API_PORT: 3000
+      JWT_ACTIVE_KID: key-1
+      JWT_KEYS: '[{"kid":"key-1","secret":"docker-compose-dev-secret-min-32-chars!!"}]'
+      CORS_ORIGIN: http://localhost:5173
     ports:
       - '3000:3000'
     depends_on:

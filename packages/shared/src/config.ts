@@ -20,11 +20,32 @@ export const NatsConfigSchema = z.object({
   NATS_URL: z.string().default('nats://localhost:4222'),
 });
 
+export const JwtKeySchema = z.object({
+  kid: z.string().min(1),
+  secret: z.string().min(32),
+});
+
+export const JwtConfigSchema = z.object({
+  JWT_ACTIVE_KID: z.string().min(1),
+  JWT_KEYS: z
+    .string()
+    .min(1)
+    .transform((val) => {
+      const parsed = JSON.parse(val) as Array<{ kid: string; secret: string }>;
+      return z.array(JwtKeySchema).min(1).parse(parsed);
+    }),
+  JWT_ACCESS_TOKEN_TTL: z.string().default('900'),
+  JWT_REFRESH_TOKEN_TTL_DAYS: z.coerce.number().default(30),
+});
+
 export const ApiConfigSchema = BaseConfigSchema.merge(DatabaseConfigSchema)
   .merge(RedisConfigSchema)
+  .merge(JwtConfigSchema)
   .extend({
     API_HOST: z.string().default('0.0.0.0'),
     API_PORT: z.coerce.number().default(3000),
+    CORS_ORIGIN: z.string().default('http://localhost:5173'),
+    INVITE_CODE_TTL_DAYS: z.coerce.number().default(7),
   });
 
 export const GatewayConfigSchema = BaseConfigSchema.merge(RedisConfigSchema)
