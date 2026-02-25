@@ -23,3 +23,5 @@ export {
   type SpanContext,
 } from './tracing';
 export { touchHealthFile, startHealthBeat } from './healthcheck';
+export { Argon2PasswordHasher } from './auth/password-hasher';
+export { JoseTokenService } from './auth/token-service';

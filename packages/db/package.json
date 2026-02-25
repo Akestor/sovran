@@ -11,8 +11,9 @@
     "migrate": "tsx src/migrator.ts"
   },
   "dependencies": {
-    "pg": "^8.11.0",
-    "@sovran/shared": "workspace:*"
+    "@sovran/domain": "workspace:^",
+    "@sovran/shared": "workspace:*",
+    "pg": "^8.11.0"
   },
   "devDependencies": {
     "@types/pg": "^8.11.0"
