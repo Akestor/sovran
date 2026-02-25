@@ -5,3 +5,4 @@ export { PgServerRepository } from './server-repository';
 export { PgChannelRepository } from './channel-repository';
 export { PgMemberRepository } from './member-repository';
 export { PgServerInviteRepository } from './server-invite-repository';
+export { PgMessageRepository } from './message-repository';
