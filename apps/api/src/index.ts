@@ -9,7 +9,14 @@ async function main() {
 
   initPool({ connectionString: config.DATABASE_URL });
 
-  const app = await buildServer();
+  const app = await buildServer({
+    jwtActiveKid: config.JWT_ACTIVE_KID,
+    jwtKeys: config.JWT_KEYS,
+    jwtAccessTokenTtl: config.JWT_ACCESS_TOKEN_TTL,
+    jwtRefreshTokenTtlDays: config.JWT_REFRESH_TOKEN_TTL_DAYS,
+    corsOrigin: config.CORS_ORIGIN,
+    nodeId: config.NODE_ID,
+  });
 
   await app.listen({ host: config.API_HOST, port: config.API_PORT });
   logger.info({ port: config.API_PORT }, 'API server started');

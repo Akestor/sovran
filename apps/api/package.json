@@ -9,9 +9,13 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "fastify": "^4.26.0",
-    "@sovran/shared": "workspace:*",
+    "@sovran/db": "workspace:*",
+    "@sovran/domain": "workspace:^",
     "@sovran/proto": "workspace:*",
-    "@sovran/db": "workspace:*"
+    "@sovran/shared": "workspace:*",
+    "fastify": "^4.26.0"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.11.0"
   }
 }

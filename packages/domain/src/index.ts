@@ -15,3 +15,4 @@ export type {
   PasswordHasher,
   TokenService,
 } from './ports';
+export { AuthService, AuthError, type AuthServiceDeps, type AuthResult } from './auth-service';
