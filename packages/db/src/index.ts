@@ -3,3 +3,7 @@ export { appendOutboxEvent, fetchUnpublishedEvents, markPublished, type OutboxEv
 export { PgUserRepository } from './repositories/user-repository';
 export { PgRefreshTokenRepository } from './repositories/refresh-token-repository';
 export { PgInviteCodeRepository } from './repositories/invite-code-repository';
+export { PgServerRepository } from './repositories/server-repository';
+export { PgChannelRepository } from './repositories/channel-repository';
+export { PgMemberRepository } from './repositories/member-repository';
+export { PgServerInviteRepository } from './repositories/server-invite-repository';

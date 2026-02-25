@@ -34,3 +34,5 @@ export type {
   MemberRepository,
   ServerInviteRepository,
 } from './server-ports';
+export { ServerService, ServerError, type ServerServiceDeps } from './server-service';
+export { ChannelService, ChannelError, type ChannelServiceDeps } from './channel-service';
