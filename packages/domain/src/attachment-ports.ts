@@ -24,6 +24,14 @@ export interface AttachmentRepository {
   findByIds(tx: unknown, ids: string[]): Promise<Attachment[]>;
 
   listByStatus(tx: unknown, status: Attachment['status']): Promise<Attachment[]>;
+
+  listByServerId(tx: unknown, serverId: string): Promise<Attachment[]>;
+
+  /** Claim uploaded attachments for scanning. Returns up to limit, sets status to scanning. */
+  claimForScanning(tx: unknown, limit: number): Promise<Attachment[]>;
+
+  /** Revert attachments stuck in scanning longer than olderThanMs. Returns count reverted. */
+  revertStuckScanning(tx: unknown, olderThanMs: number): Promise<number>;
 }
 
 export interface MessageAttachmentRepository {
@@ -40,4 +48,7 @@ export interface ObjectStoragePort {
   deleteObject(key: string): Promise<void>;
 
   ensureBucket(): Promise<void>;
+
+  /** Stream object content for scanning. No local file persistence. */
+  getObjectStream(key: string): Promise<AsyncIterable<Uint8Array>>;
 }

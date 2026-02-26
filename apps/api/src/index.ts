@@ -20,6 +20,7 @@ async function main() {
     maxChannelsPerServer: config.MAX_CHANNELS_PER_SERVER,
     redisUrl: config.REDIS_URL,
     minioEndpoint: config.MINIO_ENDPOINT,
+    minioPublicEndpoint: config.MINIO_PUBLIC_ENDPOINT,
     minioAccessKey: config.MINIO_ACCESS_KEY,
     minioSecretKey: config.MINIO_SECRET_KEY,
     minioBucket: config.MINIO_BUCKET,

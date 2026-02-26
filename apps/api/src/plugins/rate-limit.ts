@@ -41,3 +41,35 @@ export function createRateLimiter(opts: { windowMs: number; maxRequests: number 
     }
   };
 }
+
+/** Per-user rate limiter for authenticated routes. Keyed by userId. */
+export function createUserRateLimiter(opts: { windowMs: number; maxRequests: number }) {
+  const buckets = new Map<string, RateLimitBucket>();
+
+  setInterval(() => {
+    const now = Date.now();
+    for (const [key, bucket] of buckets) {
+      if (bucket.resetAt <= now) {
+        buckets.delete(key);
+      }
+    }
+  }, opts.windowMs).unref();
+
+  return async function userRateLimit(request: FastifyRequest, _reply: FastifyReply) {
+    const userId = (request as FastifyRequest & { userId?: string }).userId;
+    const key = userId ?? request.ip ?? 'unknown';
+    const now = Date.now();
+
+    let bucket = buckets.get(key);
+    if (!bucket || bucket.resetAt <= now) {
+      bucket = { count: 0, resetAt: now + opts.windowMs };
+      buckets.set(key, bucket);
+    }
+
+    bucket.count++;
+    if (bucket.count > opts.maxRequests) {
+      logger.warn({ requestId: request.id }, 'Rate limit exceeded');
+      throw new AppError(ErrorCode.RATE_LIMITED, 'Too many requests, please try again later');
+    }
+  };
+}

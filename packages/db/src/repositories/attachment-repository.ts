@@ -47,7 +47,7 @@ export class PgAttachmentRepository implements AttachmentRepository {
   async updateStatus(tx: unknown, id: string, status: Attachment['status']): Promise<void> {
     const client = tx as PoolClient;
     await client.query(
-      `UPDATE attachments SET status = $1 WHERE id = $2 AND deleted_at IS NULL`,
+      `UPDATE attachments SET status = $1, updated_at = NOW() WHERE id = $2 AND deleted_at IS NULL`,
       [status, id],
     );
   }
@@ -79,6 +79,68 @@ export class PgAttachmentRepository implements AttachmentRepository {
       [status],
     );
     return result.rows.map(mapAttachmentRow);
+  }
+
+  async claimForScanning(tx: unknown, limit: number): Promise<Attachment[]> {
+    const client = tx as PoolClient;
+    const result = await client.query(
+      `UPDATE attachments SET status = 'scanning', updated_at = NOW()
+       WHERE id IN (
+         SELECT id FROM attachments
+         WHERE status = 'uploaded' AND deleted_at IS NULL
+         LIMIT $1
+         FOR UPDATE SKIP LOCKED
+       )
+       RETURNING id, server_id, channel_id, uploader_id, object_key, filename, content_type, size_bytes, status, created_at, deleted_at`,
+      [limit],
+    );
+    return result.rows.map(mapAttachmentRow);
+  }
+
+  async revertStuckScanning(tx: unknown, olderThanMs: number): Promise<number> {
+    const client = tx as PoolClient;
+    const result = await client.query(
+      `UPDATE attachments SET status = 'uploaded', updated_at = NOW()
+       WHERE status = 'scanning' AND deleted_at IS NULL
+         AND updated_at < NOW() - ($1::bigint * interval '1 millisecond')
+       RETURNING id`,
+      [olderThanMs],
+    );
+    return result.rowCount ?? 0;
+  }
+
+  async listByServerId(tx: unknown, serverId: string): Promise<Attachment[]> {
+    const client = tx as PoolClient;
+    const result = await client.query(
+      `SELECT id, server_id, channel_id, uploader_id, object_key, filename, content_type, size_bytes, status, created_at, deleted_at
+       FROM attachments WHERE server_id = $1 AND deleted_at IS NULL`,
+      [serverId],
+    );
+    return result.rows.map(mapAttachmentRow);
+  }
+
+  /** DSAR export: attachment metadata for user (uploader). No object_key, no download URLs. */
+  async listDsarMetadataByUploaderId(tx: unknown, userId: string): Promise<
+    Array<{ id: string; filename: string; contentType: string; sizeBytes: number; createdAt: Date; serverId: string; channelId: string; messageId: string | null }>
+  > {
+    const client = tx as PoolClient;
+    const result = await client.query(
+      `SELECT a.id, a.filename, a.content_type, a.size_bytes, a.created_at, a.server_id, a.channel_id,
+              (SELECT ma.message_id FROM message_attachments ma WHERE ma.attachment_id = a.id LIMIT 1) AS message_id
+       FROM attachments a
+       WHERE a.uploader_id = $1 AND a.deleted_at IS NULL`,
+      [userId],
+    );
+    return result.rows.map((r) => ({
+      id: String(r.id),
+      filename: String(r.filename),
+      contentType: String(r.content_type),
+      sizeBytes: Number(r.size_bytes),
+      createdAt: r.created_at as Date,
+      serverId: String(r.server_id),
+      channelId: String(r.channel_id),
+      messageId: r.message_id != null ? String(r.message_id) : null,
+    }));
   }
 }
 

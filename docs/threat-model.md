@@ -127,4 +127,4 @@ This document describes the security posture and threat model for the Sovran pla
 - CORS policy not yet implemented (required before frontend integration)
 - Content Security Policy headers not yet set
 - Vault/KMS integration for key management not yet implemented
-- ClamAV scanning pipeline not yet integrated
+- ClamAV scanning pipeline integrated (M7)

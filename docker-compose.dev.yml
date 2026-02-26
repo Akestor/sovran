@@ -37,6 +37,31 @@ services:
       timeout: 5s
       retries: 5
 
+  clamav:
+    image: clamav/clamav:latest
+    ports:
+      - '3310:3310'
+    # Freshclam updates virus DB on first start (can take minutes)
+    environment:
+      CLAMAV_NO_FRESHCLAM: 'false'
+    healthcheck:
+      test: ['CMD', 'clamdscan', '--ping', '3']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
+
+  db-migrate:
+    build:
+      context: .
+      dockerfile: docker/worker.Dockerfile
+    command: ["node", "packages/db/dist/migrator.js"]
+    environment:
+      DATABASE_URL: postgresql://sovran:sovran_dev@postgres:5432/sovran
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   minio:
     image: minio/minio:latest
     environment:

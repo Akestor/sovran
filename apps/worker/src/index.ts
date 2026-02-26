@@ -6,6 +6,7 @@ import { runDeletionJob } from './jobs/deletion';
 import { runRetentionJob } from './jobs/retention';
 import { runDsarExportJob } from './jobs/dsar';
 import { runAttachmentScanJob } from './jobs/attachment-scan';
+import { runServerDeletionPurgeJob } from './jobs/server-deletion-purge';
 
 const logger = createLogger({ name: 'worker' });
 
@@ -37,6 +38,9 @@ async function main() {
     setInterval(() => {
       runAttachmentScanJob().catch(logJobError('attachment-scan'));
     }, 5_000),
+    setInterval(() => {
+      runServerDeletionPurgeJob().catch(logJobError('server-deletion-purge'));
+    }, 60_000),
   ];
 
   logger.info({}, 'Worker started');

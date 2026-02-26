@@ -7,6 +7,9 @@ export enum ErrorCode {
   RATE_LIMITED = 'RATE_LIMITED',
   CONFLICT = 'CONFLICT',
   BAD_REQUEST = 'BAD_REQUEST',
+  STORAGE_UNAVAILABLE = 'STORAGE_UNAVAILABLE',
+  SCAN_FAILED = 'SCAN_FAILED',
+  UPLOAD_NOT_FOUND = 'UPLOAD_NOT_FOUND',
 }
 
 const HTTP_STATUS_MAP: Record<ErrorCode, number> = {
@@ -18,6 +21,9 @@ const HTTP_STATUS_MAP: Record<ErrorCode, number> = {
   [ErrorCode.RATE_LIMITED]: 429,
   [ErrorCode.CONFLICT]: 409,
   [ErrorCode.BAD_REQUEST]: 400,
+  [ErrorCode.STORAGE_UNAVAILABLE]: 503,
+  [ErrorCode.SCAN_FAILED]: 422,
+  [ErrorCode.UPLOAD_NOT_FOUND]: 404,
 };
 
 const WS_CLOSE_MAP: Record<ErrorCode, number> = {
@@ -29,6 +35,9 @@ const WS_CLOSE_MAP: Record<ErrorCode, number> = {
   [ErrorCode.RATE_LIMITED]: 4005,
   [ErrorCode.CONFLICT]: 4006,
   [ErrorCode.BAD_REQUEST]: 4007,
+  [ErrorCode.STORAGE_UNAVAILABLE]: 4008,
+  [ErrorCode.SCAN_FAILED]: 4009,
+  [ErrorCode.UPLOAD_NOT_FOUND]: 4010,
 };
 
 export class AppError extends Error {

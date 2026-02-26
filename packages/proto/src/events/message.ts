@@ -4,6 +4,7 @@ export const MESSAGE_CREATE = 'MESSAGE_CREATE' as const;
 export const MESSAGE_UPDATE = 'MESSAGE_UPDATE' as const;
 export const MESSAGE_DELETE = 'MESSAGE_DELETE' as const;
 
+/** Attachment metadata for MESSAGE_CREATE. NEVER include presigned/download URLs. */
 export const MessageAttachmentPayloadSchema = z.object({
   id: z.string(),
   filename: z.string(),

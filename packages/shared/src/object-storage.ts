@@ -17,22 +17,29 @@ export interface MinioObjectStorageConfig {
   accessKey: string;
   secretKey: string;
   bucket: string;
+  /** Public endpoint for presigned URLs (e.g. http://localhost:9000 when API runs in Docker). Falls back to endpoint if not set. */
+  publicEndpoint?: string;
 }
 
 export class MinioObjectStorage implements ObjectStoragePort {
   private readonly client: S3Client;
+  private readonly signingClient: S3Client;
   private readonly bucket: string;
 
   constructor(config: MinioObjectStorageConfig) {
     this.bucket = config.bucket;
-    this.client = new S3Client({
-      endpoint: config.endpoint,
-      region: 'us-east-1',
+    const baseConfig = {
+      region: 'us-east-1' as const,
       credentials: {
         accessKeyId: config.accessKey,
         secretAccessKey: config.secretKey,
       },
       forcePathStyle: true,
+    };
+    this.client = new S3Client({ ...baseConfig, endpoint: config.endpoint });
+    this.signingClient = new S3Client({
+      ...baseConfig,
+      endpoint: config.publicEndpoint ?? config.endpoint,
     });
   }
 
@@ -43,7 +50,7 @@ export class MinioObjectStorage implements ObjectStoragePort {
       ContentType: contentType,
       ContentLength: sizeBytes,
     });
-    return getSignedUrl(this.client, command, { expiresIn: UPLOAD_URL_TTL_SECONDS });
+    return getSignedUrl(this.signingClient, command, { expiresIn: UPLOAD_URL_TTL_SECONDS });
   }
 
   async generateDownloadUrl(key: string): Promise<string> {
@@ -51,7 +58,7 @@ export class MinioObjectStorage implements ObjectStoragePort {
       Bucket: this.bucket,
       Key: key,
     });
-    return getSignedUrl(this.client, command, { expiresIn: DOWNLOAD_URL_TTL_SECONDS });
+    return getSignedUrl(this.signingClient, command, { expiresIn: DOWNLOAD_URL_TTL_SECONDS });
   }
 
   async deleteObject(key: string): Promise<void> {
@@ -61,6 +68,20 @@ export class MinioObjectStorage implements ObjectStoragePort {
         Key: key,
       }),
     );
+  }
+
+  async getObjectStream(key: string): Promise<AsyncIterable<Uint8Array>> {
+    const response = await this.client.send(
+      new GetObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+      }),
+    );
+    const body = response.Body;
+    if (!body) {
+      throw new Error('Object not found or empty');
+    }
+    return body as AsyncIterable<Uint8Array>;
   }
 
   async ensureBucket(): Promise<void> {

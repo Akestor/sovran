@@ -301,8 +301,8 @@ async function testAttachmentUploadFlow() {
   const complete = await api('POST', `/attachments/${attachmentId}/complete`, {}, token);
   assert(complete.status === 204, `Complete attachment: ${complete.status}`);
 
-  // Wait for scan stub (worker polls every 5s)
-  await new Promise(r => setTimeout(r, 6000));
+  // Wait for ClamAV scan (worker polls every 5s, scan takes a few seconds)
+  await new Promise(r => setTimeout(r, 15000));
 
   // Send message with attachment
   const send = await api('POST', `/servers/${serverId}/channels/${channelId}/messages`, {

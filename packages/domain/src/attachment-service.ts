@@ -71,7 +71,7 @@ export class AttachmentService {
     return this.deps.withTransaction(async (tx) => {
       const attachment = await attachmentRepo.findById(tx, attachmentId);
       if (!attachment) {
-        throw new AttachmentError('NOT_FOUND', 'Attachment not found');
+        throw new AttachmentError('UPLOAD_NOT_FOUND', 'Attachment not found');
       }
       if (attachment.uploaderId !== userId) {
         throw new AttachmentError('FORBIDDEN', 'Not the uploader of this attachment');
@@ -102,7 +102,7 @@ export class AttachmentService {
     return this.deps.withTransaction(async (tx) => {
       const attachment = await attachmentRepo.findById(tx, attachmentId);
       if (!attachment) {
-        throw new AttachmentError('NOT_FOUND', 'Attachment not found');
+        throw new AttachmentError('UPLOAD_NOT_FOUND', 'Attachment not found');
       }
 
       const member = await memberRepo.findMember(tx, attachment.serverId, userId);
@@ -110,8 +110,11 @@ export class AttachmentService {
         throw new AttachmentError('FORBIDDEN', 'Not a member of this server');
       }
 
+      if (attachment.status === 'blocked') {
+        throw new AttachmentError('SCAN_FAILED', 'Attachment was blocked by security scan');
+      }
       if (attachment.status !== 'scanned') {
-        throw new AttachmentError('VALIDATION', 'Attachment not yet available for download');
+        throw new AttachmentError('SCAN_FAILED', 'Attachment not yet available for download');
       }
 
       return objectStorage.generateDownloadUrl(attachment.objectKey);
@@ -121,7 +124,7 @@ export class AttachmentService {
 
 export class AttachmentError extends Error {
   constructor(
-    public readonly kind: 'VALIDATION' | 'NOT_FOUND' | 'FORBIDDEN',
+    public readonly kind: 'VALIDATION' | 'NOT_FOUND' | 'FORBIDDEN' | 'STORAGE_UNAVAILABLE' | 'SCAN_FAILED' | 'UPLOAD_NOT_FOUND',
     message: string,
   ) {
     super(message);

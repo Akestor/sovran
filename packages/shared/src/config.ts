@@ -22,6 +22,7 @@ export const NatsConfigSchema = z.object({
 
 export const MinioConfigSchema = z.object({
   MINIO_ENDPOINT: z.string().default('http://localhost:9000'),
+  MINIO_PUBLIC_ENDPOINT: z.string().optional(),
   MINIO_ACCESS_KEY: z.string().min(1),
   MINIO_SECRET_KEY: z.string().min(1),
   MINIO_BUCKET: z.string().default('attachments'),
@@ -76,6 +77,10 @@ export const WorkerConfigSchema = BaseConfigSchema.merge(DatabaseConfigSchema)
     OUTBOX_POLL_INTERVAL_MS: z.coerce.number().default(1000),
     OUTBOX_BATCH_SIZE: z.coerce.number().default(100),
     WORKER_HEALTHCHECK_PATH: z.string().default('/tmp/.worker-healthy'),
+    CLAMAV_HOST: z.string().default('localhost'),
+    CLAMAV_PORT: z.coerce.number().default(3310),
+    ATTACHMENT_SCAN_CONCURRENCY: z.coerce.number().default(5),
+    ATTACHMENT_SCAN_STUCK_MS: z.coerce.number().default(600_000), // 10 min
   });
 
 export function loadConfig<T extends z.ZodType>(

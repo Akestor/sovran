@@ -140,6 +140,9 @@ describe('MessageService', () => {
           makeAttachment({ id: 'att-2', filename: 'b.png', sizeBytes: 200 }),
         ]),
         listByStatus: vi.fn(),
+        listByServerId: vi.fn(),
+        claimForScanning: vi.fn(),
+        revertStuckScanning: vi.fn(),
       };
       const messageAttachmentRepo = { link: vi.fn(async () => {}), listByMessageId: vi.fn(async () => []) };
       const depsWithAtt = createMockDeps({ attachmentRepo, messageAttachmentRepo });
@@ -173,6 +176,9 @@ describe('MessageService', () => {
         softDelete: vi.fn(),
         findByIds: vi.fn(async () => [makeAttachment({ id: 'att-1', status: 'uploaded' })]),
         listByStatus: vi.fn(),
+        listByServerId: vi.fn(),
+        claimForScanning: vi.fn(),
+        revertStuckScanning: vi.fn(),
       };
       const messageAttachmentRepo = { link: vi.fn(async () => {}), listByMessageId: vi.fn(async () => []) };
       const depsWithAtt = createMockDeps({ attachmentRepo, messageAttachmentRepo });
@@ -191,6 +197,9 @@ describe('MessageService', () => {
         softDelete: vi.fn(),
         findByIds: vi.fn(async () => [makeAttachment({ id: 'att-1', serverId: 'srv-other' })]),
         listByStatus: vi.fn(),
+        listByServerId: vi.fn(),
+        claimForScanning: vi.fn(),
+        revertStuckScanning: vi.fn(),
       };
       const messageAttachmentRepo = { link: vi.fn(async () => {}), listByMessageId: vi.fn(async () => []) };
       const depsWithAtt = createMockDeps({ attachmentRepo, messageAttachmentRepo });

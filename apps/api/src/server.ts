@@ -11,7 +11,7 @@ import {
 } from '@sovran/db';
 import { registerErrorHandler } from './plugins/error-handler';
 import { createAuthMiddleware } from './plugins/auth';
-import { createRateLimiter } from './plugins/rate-limit';
+import { createRateLimiter, createUserRateLimiter } from './plugins/rate-limit';
 import { registerAuthRoutes } from './routes/auth';
 import { registerServerRoutes } from './routes/servers';
 import { registerChannelRoutes } from './routes/channels';
@@ -31,6 +31,7 @@ export interface ServerConfig {
   maxChannelsPerServer: number;
   redisUrl: string;
   minioEndpoint: string;
+  minioPublicEndpoint?: string;
   minioAccessKey: string;
   minioSecretKey: string;
   minioBucket: string;
@@ -96,10 +97,12 @@ export async function buildServer(config: ServerConfig) {
   const messageAttachmentRepo = new PgMessageAttachmentRepository();
   const objectStorage = new MinioObjectStorage({
     endpoint: config.minioEndpoint,
+    publicEndpoint: config.minioPublicEndpoint,
     accessKey: config.minioAccessKey,
     secretKey: config.minioSecretKey,
     bucket: config.minioBucket,
   });
+  await objectStorage.ensureBucket();
 
   const attachmentService = new AttachmentService({
     attachmentRepo,
@@ -127,6 +130,9 @@ export async function buildServer(config: ServerConfig) {
 
   const authenticate = createAuthMiddleware(tokenService);
   const authRateLimit = createRateLimiter({ windowMs: 60_000, maxRequests: 20 });
+  const attachmentInitRateLimit = createUserRateLimiter({ windowMs: 60_000, maxRequests: 30 });
+  const attachmentCompleteRateLimit = createUserRateLimiter({ windowMs: 60_000, maxRequests: 60 });
+  const attachmentDownloadRateLimit = createUserRateLimiter({ windowMs: 60_000, maxRequests: 120 });
 
   app.get('/health', async () => {
     return { status: 'ok', timestamp: new Date().toISOString() };
@@ -136,7 +142,13 @@ export async function buildServer(config: ServerConfig) {
   registerServerRoutes(app, { serverService, authenticate });
   registerChannelRoutes(app, { channelService, authenticate });
   registerMessageRoutes(app, { messageService, authenticate });
-  registerAttachmentRoutes(app, { attachmentService, authenticate });
+  registerAttachmentRoutes(app, {
+    attachmentService,
+    authenticate,
+    attachmentInitRateLimit,
+    attachmentCompleteRateLimit,
+    attachmentDownloadRateLimit,
+  });
 
   const presenceStore = new RedisPresenceStore(getRedis());
   registerPresenceRoutes(app, {

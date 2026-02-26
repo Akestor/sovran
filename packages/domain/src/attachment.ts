@@ -1,4 +1,4 @@
-export type AttachmentStatus = 'pending' | 'uploaded' | 'scanned' | 'blocked' | 'deleted';
+export type AttachmentStatus = 'pending' | 'uploaded' | 'scanning' | 'scanned' | 'blocked' | 'deleted';
 
 export interface Attachment {
   id: string;

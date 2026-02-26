@@ -37,6 +37,18 @@ services:
       timeout: 5s
       retries: 5
 
+  clamav:
+    image: clamav/clamav:latest
+    # Freshclam updates virus DB on first start
+    environment:
+      CLAMAV_NO_FRESHCLAM: 'false'
+    healthcheck:
+      test: ['CMD', 'clamdscan', '--ping', '3']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
+
   minio:
     image: minio/minio:latest
     environment:
@@ -81,6 +93,7 @@ services:
       JWT_KEYS: '[{"kid":"key-1","secret":"docker-compose-dev-secret-min-32-chars!!"}]'
       CORS_ORIGIN: http://localhost:5173
       MINIO_ENDPOINT: http://minio:9000
+      MINIO_PUBLIC_ENDPOINT: http://localhost:9000
       MINIO_ACCESS_KEY: minioadmin
       MINIO_SECRET_KEY: minioadmin
       MINIO_BUCKET: sovran-uploads
@@ -138,6 +151,8 @@ services:
       MINIO_ACCESS_KEY: minioadmin
       MINIO_SECRET_KEY: minioadmin
       MINIO_BUCKET: sovran-uploads
+      CLAMAV_HOST: clamav
+      CLAMAV_PORT: 3310
     depends_on:
       db-migrate:
         condition: service_completed_successfully
@@ -146,6 +161,8 @@ services:
       nats:
         condition: service_healthy
       minio:
+        condition: service_healthy
+      clamav:
         condition: service_healthy
 
 volumes:

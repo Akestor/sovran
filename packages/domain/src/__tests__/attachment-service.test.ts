@@ -53,6 +53,9 @@ function createMockDeps(overrides: Partial<AttachmentServiceDeps> = {}): Attachm
       softDelete: vi.fn(async () => {}),
       findByIds: vi.fn(async () => []),
       listByStatus: vi.fn(async () => []),
+      listByServerId: vi.fn(async () => []),
+      claimForScanning: vi.fn(async () => []),
+      revertStuckScanning: vi.fn(async () => 0),
     },
     messageAttachmentRepo: {
       link: vi.fn(async () => {}),
@@ -79,6 +82,7 @@ function createMockDeps(overrides: Partial<AttachmentServiceDeps> = {}): Attachm
       generateDownloadUrl: vi.fn(async () => 'https://minio.example/presigned-download'),
       deleteObject: vi.fn(async () => {}),
       ensureBucket: vi.fn(async () => {}),
+      getObjectStream: vi.fn(async () => (async function* () {})()),
     },
     outbox: { append: vi.fn(async () => '999') },
     generateId: vi.fn(() => 'att-5000'),
@@ -155,7 +159,7 @@ describe('AttachmentService', () => {
     it('rejects if attachment not found', async () => {
       (deps.attachmentRepo.findById as ReturnType<typeof vi.fn>).mockResolvedValueOnce(null);
       await expect(service.completeUpload('user-1', 'att-99')).rejects.toMatchObject({
-        kind: 'NOT_FOUND',
+        kind: 'UPLOAD_NOT_FOUND',
       });
     });
 
@@ -202,7 +206,23 @@ describe('AttachmentService', () => {
         makeAttachment({ status: 'uploaded' }),
       );
       await expect(service.getDownloadUrl('user-1', 'att-1')).rejects.toMatchObject({
-        kind: 'VALIDATION',
+        kind: 'SCAN_FAILED',
+      });
+    });
+
+    it('rejects if attachment blocked', async () => {
+      (deps.attachmentRepo.findById as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+        makeAttachment({ status: 'blocked' }),
+      );
+      await expect(service.getDownloadUrl('user-1', 'att-1')).rejects.toMatchObject({
+        kind: 'SCAN_FAILED',
+      });
+    });
+
+    it('rejects if attachment not found', async () => {
+      (deps.attachmentRepo.findById as ReturnType<typeof vi.fn>).mockResolvedValueOnce(null);
+      await expect(service.getDownloadUrl('user-1', 'att-99')).rejects.toMatchObject({
+        kind: 'UPLOAD_NOT_FOUND',
       });
     });
   });

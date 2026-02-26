@@ -97,7 +97,7 @@ When a user requests a data export:
 | `members` | server_id, role, created_at | — | Cascade-deleted with user, role is functional data |
 | `server_invites` | — | all | Operational access-control artifacts |
 | `messages` | id, channel_id, content, created_at | author_id only if user is author | Message content is user data |
-| `attachments` | id, filename, size_bytes, created_at | object_key | Metadata only; object key excluded (internal path) |
+| `attachments` | id, filename, content_type, size_bytes, created_at, server_id, channel_id, message_id | object_key, download URLs | Metadata only; object key excluded (internal path); no permanent URLs |
 
 **Attachment Deletion Propagation**:
 - User deletion: `uploader_id` set to NULL (ON DELETE SET NULL)
